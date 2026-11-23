@@ -17,6 +17,7 @@ const primary = byId("primary");
 const guide = byId("guide");
 const home = byId("home");
 const install = byId("install");
+const rotateInstall = byId("rotate-install");
 const fullscreen = byId("fullscreen");
 let installPrompt = null;
 const rotate = byId("rotate");
@@ -244,13 +245,15 @@ fullscreen.addEventListener('click', async () => {
   }
 });
 window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; });
-window.addEventListener('appinstalled', () => { installPrompt = null; install.textContent = '已安装'; });
-install.addEventListener('click', async () => {
+window.addEventListener('appinstalled', () => { installPrompt = null; install.textContent = '已安装'; rotateInstall.textContent = '已安装'; });
+async function installGame() {
   if (installPrompt) { const prompt = installPrompt; installPrompt = null; await prompt.prompt(); await prompt.userChoice; }
   else if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) alert('游戏已安装到主屏幕。');
   else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) alert('请在 Safari 中点击分享按钮，再选择“添加到主屏幕”。');
   else alert('请打开浏览器菜单，选择“安装应用”或“添加到主屏幕”。如未看到选项，请通过 HTTPS 游戏网址打开并稍后重试。');
-});
+}
+install.addEventListener('click', installGame);
+rotateInstall.addEventListener('click', installGame);
 primary.addEventListener("click", () => primaryAction());
 home.addEventListener("click", showTitle);
 pauseButton.addEventListener("click", togglePause);

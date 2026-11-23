@@ -206,3 +206,5 @@ h1 span { color: var(--amber); }
 .attacks .pad.fire { right:0; bottom:0; width:clamp(76px, 22vmin, 100px); height:clamp(76px, 22vmin, 100px); border-radius:50%; background:radial-gradient(circle at 35% 25%, #bb7a43, #593122 68%, #2c211e); }
 .panel, .hud-left { border-radius:16px; box-shadow:0 12px 40px #06101688; }
 .primary, .secondary, .pause { border-radius:999px; }
+
+.rotate-install { margin-top: 20px; min-width: 120px; }
