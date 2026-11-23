@@ -17,6 +17,7 @@ const primary = byId("primary");
 const guide = byId("guide");
 const home = byId("home");
 const install = byId("install");
+const fullscreen = byId("fullscreen");
 let installPrompt = null;
 const rotate = byId("rotate");
 const touch = window.matchMedia("(pointer: coarse)");
@@ -78,6 +79,7 @@ function panel(next, title, message, label, action) {
   primaryAction = action;
   home.hidden = next === "title";
   install.hidden = next !== "title";
+  fullscreen.hidden = next !== "title";
   guide.hidden = next !== "title";
   setScreen(next);
   if (!rotationBlocked) primary.focus({ preventScroll: true });
@@ -228,6 +230,19 @@ function finish() {
   }
 }
 
+function syncFullscreenButton() {
+  fullscreen.textContent = document.fullscreenElement ? '退出全屏' : '全屏';
+}
+document.addEventListener('fullscreenchange', syncFullscreenButton);
+fullscreen.addEventListener('click', async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+    else alert('当前浏览器不支持网页全屏。可使用“安装”将游戏添加到主屏幕，再从主屏幕打开以隐藏浏览器地址栏。');
+  } catch (error) {
+    alert('无法进入全屏。可使用“安装”将游戏添加到主屏幕，再从主屏幕打开。');
+  }
+});
 window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; });
 window.addEventListener('appinstalled', () => { installPrompt = null; install.textContent = '已安装'; });
 install.addEventListener('click', async () => {
