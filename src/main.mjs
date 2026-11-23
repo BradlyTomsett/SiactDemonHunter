@@ -102,14 +102,11 @@ function showTitle() {
   loadLevel(0, PLAYER.lives);
   panel(
     "title",
-    "SiactDemonHunter",
+    "逃离办公室",
     "你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。",
     "开始第一关",
     start,
   );
-  const accent = document.createElement("span");
-  accent.textContent = "Demon";
-  byId("menu-title").replaceChildren("Siact", accent, "Hunter");
 }
 
 function start() {
