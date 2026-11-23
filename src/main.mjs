@@ -23,6 +23,7 @@ const step = 1 / 120;
 
 let levelIndex = 0;
 let carryLives = PLAYER.lives;
+let completedTime = 0;
 let game = null;
 let screen = "title";
 let rotationBlocked = false;
@@ -91,6 +92,7 @@ function loadLevel(index, remainingLives) {
 }
 
 function showTitle() {
+  completedTime = 0;
   loadLevel(0, PLAYER.lives);
   panel(
     "title",
@@ -203,6 +205,7 @@ function finish() {
       `已抵达出口。用时 ${used}，剩余命数 ${nextLives + 1} 条。`,
       "下一段",
       () => {
+        completedTime += game.elapsed;
         loadLevel(levelIndex + 1, nextLives);
         start();
       },
@@ -211,9 +214,10 @@ function finish() {
     panel(
       "cleared",
       "第一关通关",
-      `你越过了桌缝。总用时 ${used}，剩余命数 ${game.lives + 1} 条。`,
+      `你越过了桌缝。总用时 ${timeText(completedTime + game.elapsed)}，剩余命数 ${game.lives + 1} 条。`,
       "再玩一局",
       () => {
+        completedTime = 0;
         loadLevel(0, PLAYER.lives);
         start();
       },
@@ -254,4 +258,8 @@ function frame(now) {
 }
 
 showTitle();
+updateDevice();
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(error => console.warn("离线功能注册失败", error));
+}
 requestAnimationFrame(frame);

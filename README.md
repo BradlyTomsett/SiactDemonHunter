@@ -34,3 +34,7 @@ python -m http.server 8000 --bind 127.0.0.1
 
 目标仓库为 [BradlyTomsett/SiactDemonHunter](https://github.com/BradlyTomsett/SiactDemonHunter)。静态入口是仓库根目录的 `index.html`，将它、`style.css` 和完整 `src` 目录一起提交即可。路径全部相对于当前页面，Pages 使用 `main` 分支的根目录时，无需构建命令。
 
+
+## 安装到手机
+
+通过 HTTPS 的 GitHub Pages 地址打开游戏后，在手机浏览器菜单选择“添加到主屏幕”或“安装应用”。iPhone 使用 Safari 的分享菜单选择“添加到主屏幕”。首次联网打开并加载完成后，游戏资源会缓存，可离线再次打开。更新时请联网打开游戏。

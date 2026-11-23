@@ -358,6 +358,7 @@ export function createRenderer(canvas) {
   }
 
   function drawBoss(boss, config) {
+    if (boss.state === 'waiting' || boss.state === 'defeated') return;
     const { x, y, w, h } = boss;
     const fur = boss.flash > 0 ? '#fff1d5' : '#c69568';
     ctx.save();

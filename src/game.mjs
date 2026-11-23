@@ -72,7 +72,7 @@ function nearestCheckpoint(game, x) {
 
 function die(game, reason) {
   if (game.lives > 0) {
-    const index = nearestCheckpoint(game, game.player.x);
+    const index = game.checkpoint;
     const keep = {
       weapon: game.player.weapon,
       ammo: game.player.ammo,
@@ -249,7 +249,10 @@ function stepEnemies(game, dt) {
     }
   }
 
-  game.enemyShots = game.enemyShots.filter(shot => {
+  const shots = game.enemyShots;
+  const respawns = game.respawns;
+  const remainingShots = shots.filter(shot => {
+    if (game.respawns !== respawns || game.status !== "playing") return false;
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
     shot.life -= dt;
@@ -261,6 +264,7 @@ function stepEnemies(game, dt) {
     }
     return shot.x > -20 && shot.x < game.level.width + 20 && shot.y > -20 && shot.y < VIEW.height + 20;
   });
+  if (game.respawns === respawns && game.status === "playing") game.enemyShots = remainingShots;
 }
 
 function stepGrenades(game, input, dt) {
@@ -370,7 +374,10 @@ export function stepGame(game, input, dt) {
     return;
   }
 
+  game.checkpoint = Math.max(game.checkpoint, nearestCheckpoint(game, p.x));
+  const beforeEnemies = game.respawns;
   stepEnemies(game, dt);
+  if (game.respawns !== beforeEnemies || game.status !== "playing") return;
   stepShots(game, input.fire, dt);
   stepGrenades(game, input, dt);
   const respawns = game.respawns;
@@ -401,10 +408,7 @@ export function stepGame(game, input, dt) {
   const gateOpen = !game.level.boss || (game.boss && game.boss.state === 'defeated');
   if (gateOpen && game.status === "playing" && overlaps(p, game.level.exit)) game.status = "cleared";
 
-  const arena = game.level.boss;
-  const target = arena && game.boss && !['waiting', 'defeated'].includes(game.boss.state)
-    ? arena.arenaLeft - 20
-    : clamp(p.x - VIEW.width * 0.38, 0, Math.max(0, game.level.width - VIEW.width));
+  const target = clamp(p.x - VIEW.width * 0.38, 0, Math.max(0, game.level.width - VIEW.width));
   game.camera = approach(game.camera, target, 420 * dt);
   game.sparks = game.sparks.filter(spark => {
     spark.x += spark.vx * dt;

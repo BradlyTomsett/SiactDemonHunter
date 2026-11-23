@@ -33,7 +33,7 @@ export const ENEMIES = {
 // 只有最后一段挂 Boss；其它段 boss 为 null，走到出口即通关。
 export const BOSS = {
   health: 60, width: 58, height: 48, label: '6狗',
-  trigger: 340, arenaLeft: 320, arenaRight: 1800, spawnX: 1700, ground: 286,
+  trigger: 340, arenaLeft: 320, arenaRight: 960, spawnX: 690, ground: 286,
   intro: 1.5, warning: 1, dashSpeed: 250, dashDuration: 1.1,
   waveSpeed: 175, recovery: 1.1, damage: 1,
 };
@@ -262,7 +262,7 @@ decorate(ch6, 1400, 286, 'cup');
 grenades(ch6, 60, 270);
 weapon(ch6, 120, 270, 'heavy');
 health(ch6, 200, 270);
-ch6.boss = { ...BOSS, trigger: 340, arenaLeft: 320, arenaRight: 1800, spawnX: 1700, ground: GROUND };
+ch6.boss = { ...BOSS, trigger: 340, arenaLeft: 320, arenaRight: 960, spawnX: 690, ground: GROUND };
 ch6.exit = { x: 1745, y: GROUND - 50, w: 34, h: 50 };
 cp(ch6, 210);
 hint(ch6, 0, '把最后一发手榴弹留在这里');
