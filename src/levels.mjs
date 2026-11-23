@@ -278,16 +278,16 @@ const floor = createChapter('floor', '第一关 · 6/9 办公室地面', 2100, '
 for (const [x,w] of [[0,620],[690,550],[1310,790]]) floor.platforms.push({ x, y: GROUND, w, h: 22, kind: 'floor' });
 crate(floor, 350, 256, 52); crate(floor, 960, 256, 50);
 patrol(floor, 820, 740, 900); gunner(floor, 1650); flyer(floor, 1500, 205, 1400, 1620);
-hazard(floor, 1100, 60, GROUND - 14, 'cable');
+hazard(floor, 800, 60, GROUND - 14, 'cable');
 health(floor, 580, 270); grenades(floor, 1370, 270); weapon(floor, 1820, 270, 'rapid');
 cp(floor, 150); cp(floor, 750); cp(floor, 1350); cp(floor, 1850);
-hint(floor, 0, '来到办公室地面，越过桌腿和线缆'); hint(floor, 1100, '警示条纹的区域会造成伤害');
+hint(floor, 0, '来到办公室地面，越过桌腿和线缆'); hint(floor, 760, '警示条纹的区域会造成伤害');
 
 const monitor = createChapter('monitor', '第一关 · 7/9 显示器顶部', 1900, '攀过屏幕与线缆');
 for (const [x,w] of [[0,520],[600,540],[1220,680]]) monitor.platforms.push({ x, y: GROUND, w, h: 22, kind: 'monitorTop' });
 crate(monitor, 350, 256, 50); shelf(monitor, 800, 225, 100); crate(monitor, 1470, 256, 48);
 flyer(monitor, 720, 210, 640, 950); patrol(monitor, 1510, 1420, 1660);
-hazard(monitor, 1030, 55, GROUND - 14, 'cable');
+hazard(monitor, 740, 60, GROUND - 14, 'cable');
 health(monitor, 640, 270); weapon(monitor, 1250, 270, 'pierce');
 cp(monitor, 120); cp(monitor, 640); cp(monitor, 1260); cp(monitor, 1680);
 hint(monitor, 0, '沿显示器顶部前进，小心屏幕间的空隙');
