@@ -1,0 +1,8 @@
+# 本地调试产物（截图、临时探测脚本）
+outputs/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+node_modules/
+*.log
