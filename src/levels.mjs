@@ -30,7 +30,7 @@ export const ENEMIES = {
   },
 };
 
-// 只有最后一段挂 Boss；其它段 boss 为 null，走到出口即通关。
+// 第 2 段与最终段都有 Boss，其余段抵达出口即可通关。
 export const BOSS = {
   health: 60, width: 58, height: 48, label: '6狗',
   trigger: 340, arenaLeft: 320, arenaRight: 960, spawnX: 690, ground: 286,
@@ -74,6 +74,7 @@ const decorate = (c, x, y, kind) => c.decoration.push({ x, y, kind });
 
 // ── 1/6 键盘区：教学，平坦 + 一个断口 + 首个陷阱 ────────────────────────────
 const ch1 = createChapter('ch1', '第一关 · 1/6 键盘区', 2300, '从键盘旁出发');
+ch1.spawn = { x: 88, y: 262 };
 desk(ch1, 0, 442);
 keyboard(ch1, 48, 262, 166, 24);
 books(ch1, 240, 267, 55, 19);
@@ -94,14 +95,14 @@ grenades(ch1, 1010, 180);
 health(ch1, 1350, 270);
 weapon(ch1, 1900, 270, 'rapid');
 cp(ch1, 120); cp(ch1, 560); cp(ch1, 1150); cp(ch1, 1500); cp(ch1, 1900);
-hint(ch1, 0, '摇杆移动与瞄准，右手跳跃和开火');
+hint(ch1, 0, '摇杆移动与瞄准，红黄警示区会伤人');
 hint(ch1, 240, '跳上书本，再越过桌缝');
 hint(ch1, 700, '前方有巡逻怪，按住开火可以连发');
 hint(ch1, 1126, '高处的平台能省一段路');
 hint(ch1, 1520, '红色区域会伤人，跳过去');
 
 // ── 2/6 书堆迷宫：纵向爬升 + 射击怪 ────────────────────────────────────────
-const ch2 = createChapter('ch2', '第一关 · 2/6 书堆迷宫', 2600, '堆叠的文件与书本');
+const ch2 = createChapter('ch2', '第一关 · 2/6 书堆迷宫', 3300, '堆叠的文件与书本');
 desk(ch2, 0, 910);
 books(ch2, 320, 250, 56, 36);
 books(ch2, 376, 214, 56, 36);
@@ -114,7 +115,7 @@ desk(ch2, 1540, 470);
 books(ch2, 1620, 240, 60, 46);
 books(ch2, 1680, 200, 60, 40);
 shelf(ch2, 1760, 170, 120);
-desk(ch2, 2110, 490);
+desk(ch2, 2110, 1190);
 decorate(ch2, 700, 286, 'pen');
 decorate(ch2, 1300, 286, 'eraser');
 decorate(ch2, 2300, 286, 'staple');
@@ -130,12 +131,16 @@ health(ch2, 700, 270);
 grenades(ch2, 1300, 270);
 health(ch2, 1900, 270);
 health(ch2, 2460, 270);
-cp(ch2, 100); cp(ch2, 520); cp(ch2, 1050); cp(ch2, 1580); cp(ch2, 2160);
+cp(ch2, 100); cp(ch2, 520); cp(ch2, 1050); cp(ch2, 1580); cp(ch2, 2160); cp(ch2, 2570);
+ch2.boss = { ...BOSS, health: 40, trigger: 2640, arenaLeft: 2620, arenaRight: 3260, spawnX: 2990, ground: GROUND };
+ch2.exit = { x: 3260, y: GROUND - 50, w: 34, h: 50 };
+grenades(ch2, 2575, 270);
 hint(ch2, 0, '书堆可以一路踩上去，高处的补给更好');
 hint(ch2, 300, '淡色横板可以从下方穿过去');
 hint(ch2, 1000, '前方有射击怪，别站着不动');
 hint(ch2, 1500, '爬得越高，弹药越强');
-hint(ch2, 2100, '死亡会在最近的检查点复活');
+hint(ch2, 2100, '前方是 6 狗，经过旗帜后准备战斗');
+hint(ch2, 2600, '击败 6 狗才能离开，小心从天上掉落的东西');
 
 // ── 3/6 线缆区：放电陷阱 + 飞怪 + 断崖 ────────────────────────────────────
 const ch3 = createChapter('ch3', '第一关 · 3/6 显示器线缆区', 2700, '缠绕的线与漏电');

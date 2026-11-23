@@ -64,7 +64,15 @@ export function createRenderer(canvas) {
     ctx.setTransform(scale,0,0,scale,0,0);background(game.camera);ctx.save();ctx.translate(-game.camera,0);
     for(const d of game.level.decoration) decoration(d);
     for(const p of game.level.platforms) platform(p);
-    for(const h of game.level.hazards){round(h.x,h.y,h.w,h.h,5,h.kind==='spill'?'#83552ec9':h.kind==='cable'?'#e3b954':'#a66550');}
+    for(const h of game.level.hazards){
+      // 亮色警示边界与条纹均处于实际碰撞范围内。
+      round(h.x,h.y,h.w,h.h,3,'#9d2024');
+      ctx.save();ctx.beginPath();ctx.rect(h.x,h.y,h.w,h.h);ctx.clip();
+      for(let x=h.x-h.h;x<h.x+h.w;x+=14){ctx.fillStyle='#ffd846';ctx.beginPath();ctx.moveTo(x,h.y+h.h);ctx.lineTo(x+8,h.y+h.h);ctx.lineTo(x+8+h.h,h.y);ctx.lineTo(x+h.h,h.y);ctx.closePath();ctx.fill();}
+      ctx.restore();
+      line(h.x,h.y,h.x+h.w,h.y,'#fff19b',2);
+      const cx=h.x+h.w/2; oval(cx,h.y+7,6,6,'#9d2024');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 10px sans-serif';ctx.fillText('!',cx,h.y+10);
+    }
     for(const [i,c] of game.level.checkpoints.entries()){line(c.x,c.y-26,c.x,c.y,'#d7e8d4',2);round(c.x,c.y-26,14,9,3,i<=game.checkpoint?'#72e5ad':'#678483');}
     if(!game.level.boss || game.boss?.state==='defeated'){const e=game.level.exit;round(e.x-4,e.y-4,e.w+8,e.h+4,9,'#bbdbc4');round(e.x,e.y,e.w,e.h,7,'#416e68');ctx.fillStyle='#fff7d4';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('出口',e.x+e.w/2,e.y-8);}
     for(const s of game.supplies){if(s.taken)continue;round(s.x,s.y+Math.sin(game.elapsed*5)*2,s.w,s.h,4,s.type==='grenade'?'#e6b36f':s.type?'#83b2d0':'#79caa0');ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText(({grenade:'雷',spread:'散',pierce:'穿',rapid:'疾',heavy:'重'})[s.type]||'+',s.x+7,s.y+11);}
