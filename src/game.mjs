@@ -187,7 +187,7 @@ function stepShots(game, fire, dt) {
     if (game.level.platforms.some(solid => !solid.oneway && overlaps(sweep, solid))) return false;
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
     if (dropping) { dropping.destroyed = true; sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
-    const targets = [...game.enemies, ...bossTargets];
+    const targets = [...game.enemies, ...bossTargets, ...game.waves.filter(wave => wave.health > 0)];
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < VIEW.height;
     enemy.health = Math.max(0, enemy.health - bullet.damage);
@@ -301,6 +301,11 @@ function stepGrenades(game, input, dt) {
   });
 }
 
+// Boss 的远程武器：橙色耳机。可以被子弹打掉（2 发），与地面齐平飞出，跳过或射掉都行。
+function makeHeadphone(x, ground, direction) {
+  return { x, y: ground - 24, w: 22, h: 24, direction, health: 2, maxHealth: 2, flash: 0 };
+}
+
 function stepBoss(game, dt) {
   const boss = game.boss;
   const cfg = game.level.boss;
@@ -336,28 +341,63 @@ function stepBoss(game, dt) {
       boss.state = 'leap'; boss.timer = 1.1;
     } else if (boss.state === 'leap') {
       boss.y = cfg.ground - boss.h;
-      game.waves.push({ x: boss.x, y: cfg.ground - 20, w: 12, h: 20, direction: -1 }, { x: boss.x + boss.w, y: cfg.ground - 20, w: 12, h: 20, direction: 1 });
+      game.waves.push(makeHeadphone(boss.x, cfg.ground, -1), makeHeadphone(boss.x + boss.w - 22, cfg.ground, 1));
       boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'dash';
     } else if (boss.state === 'warnWave') {
-      game.waves.push({
-        x: clamp(boss.direction < 0 ? boss.x - 12 : boss.x + boss.w, cfg.arenaLeft + 2, cfg.arenaRight - 14),
-        y: cfg.ground - 20, w: 12, h: 20, direction: boss.direction,
-      });
+      game.waves.push(makeHeadphone(
+        clamp(boss.direction < 0 ? boss.x - 22 : boss.x + boss.w, cfg.arenaLeft + 2, cfg.arenaRight - 24),
+        cfg.ground,
+        boss.direction,
+      ));
       boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'leap';
     } else if (boss.state === 'dash') {
       boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'wave';
     }
   }
   if (boss.state !== 'dying' && overlaps(game.player, boss) && damagePlayer(game, boss, cfg.damage)) return true;
+  separateBoss(game);
   game.waves = game.waves.filter(wave => {
+    wave.flash = Math.max(0, (wave.flash || 0) - dt);
     wave.x += wave.direction * cfg.waveSpeed * rage * dt;
-    if (overlaps(game.player, wave)) {
-      if (damagePlayer(game, wave, cfg.damage)) return false;
+    if (wave.health <= 0) {
+      sparks(game, wave.x + wave.w / 2, wave.y + wave.h / 2, '#ffb052', 12);
       return false;
     }
-    return wave.x > cfg.arenaLeft && wave.x < cfg.arenaRight;
+    if (overlaps(game.player, wave)) {
+      damagePlayer(game, wave, cfg.damage);
+      return false;
+    }
+    return wave.x > cfg.arenaLeft - 30 && wave.x < cfg.arenaRight + 30;
   });
   return false;
+}
+
+// 玩家和 Boss 重合时把玩家挤出去。否则两个人叠在一起，玩家每一帧都被判定受伤、
+// 又被墙挡住退不开，就会一直掉血到死。
+function separateBoss(game) {
+  const boss = game.boss;
+  const cfg = game.level.boss;
+  const p = game.player;
+  if (!boss || !cfg || ['waiting', 'dying', 'defeated'].includes(boss.state)) return;
+  const overlapX = (p.w + boss.w) / 2 - Math.abs((p.x + p.w / 2) - (boss.x + boss.w / 2));
+  const overlapY = (p.h + boss.h) / 2 - Math.abs((p.y + p.h / 2) - (boss.y + boss.h / 2));
+  if (overlapX <= 0 || overlapY <= 0) return;
+  // 从上方接触：直接站到它头上，而不是被卡进身体里
+  if (overlapY < overlapX && p.y + p.h / 2 < boss.y + boss.h / 2) {
+    p.y = boss.y - p.h;
+    if (p.vy < 0) p.vy = 0;
+    p.grounded = true;
+    return;
+  }
+  const push = overlapX + 0.5;
+  const dir = p.x + p.w / 2 >= boss.x + boss.w / 2 ? 1 : -1;
+  const room = dir > 0 ? (cfg.arenaRight - p.w) - p.x : p.x - cfg.arenaLeft;
+  const moved = clamp(room, 0, push);
+  p.x = clamp(p.x + dir * moved, cfg.arenaLeft, cfg.arenaRight - p.w);
+  const left = push - moved;
+  // 玩家已经被挤到墙边还重合，就把 Boss 推开，保证一定能脱身
+  if (left > 0) boss.x = clamp(boss.x - dir * left, cfg.arenaLeft, cfg.arenaRight - boss.w);
+  p.vx = dir * PLAYER.knockbackSpeed * 0.6;
 }
 
 function stepDroppings(game, dt) {
@@ -369,7 +409,7 @@ function stepDroppings(game, dt) {
     const cfg = game.level.boss;
     const target = Math.random() < 0.5 ? game.player.x : boss.x;
     const x = clamp(target + (Math.random() - 0.5) * 100, cfg.arenaLeft, cfg.arenaRight - 18);
-    game.droppings.push({ x, y: -20, w: 18, h: 18, speed: 55 + Math.random() * 20 });
+    game.droppings.push({ x, y: -26, w: 26, h: 26, speed: 55 + Math.random() * 20 });
     game.dropTimer = 2.6 + Math.random() * 1.8;
   }
   const respawns = game.respawns;

@@ -67,6 +67,18 @@ export function createRenderer(canvas) {
     ctx.save();ctx.translate(3,14);ctx.rotate(Math.atan2(p.aimY,p.aimX*p.facing));round(0,-2,15,5,2,'#b7c9c0');if(p.flash>0)oval(18,0,5,4,'#ffdf79');ctx.restore();ctx.restore();
   }
   function enemy(e,t){if(!e.health)return;const color=e.flash?'#ffe8d4':e.type==='gunner'?'#5d8795':e.type==='flyer'?'#a26c91':'#b66383';oval(e.x+e.w/2,e.y+e.h*.58,e.w*.48,e.h*.42,color);oval(e.x+e.w/2,e.y+e.h*.33,e.w*.38,e.h*.32,color);oval(e.x+(e.direction<0?7:e.w-7),e.y+e.h*.38,2.5,2.5,'#fff4c3');if(e.type==='flyer'){oval(e.x+1,e.y+6,7,3,'#d7a1be');oval(e.x+e.w-1,e.y+6,7,3,'#d7a1be');}else{line(e.x+5,e.y+e.h-3,e.x+3,e.y+e.h,'#493847',4);line(e.x+e.w-5,e.y+e.h-3,e.x+e.w-3,e.y+e.h,'#493847',4);}}
+  // 台词气泡：20px 粗体（原来 10px），带描边、投影和小尾巴，明显突出
+  function bubble(text,cx,baseY,fg,bg,border){
+    ctx.font='bold 20px sans-serif';
+    const w=ctx.measureText(text).width+30, h=36, x=cx-w/2, y=baseY-h;
+    round(x+2,y+4,w,h,11,'#00000055');
+    round(x,y,w,h,11,bg);
+    ctx.strokeStyle=border;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(x,y,w,h,11);ctx.stroke();
+    ctx.fillStyle=bg;ctx.beginPath();ctx.moveTo(cx-8,y+h-1);ctx.lineTo(cx+8,y+h-1);ctx.lineTo(cx,y+h+10);ctx.closePath();ctx.fill();
+    ctx.fillStyle=fg;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(text,cx,y+h/2+1);
+    ctx.textBaseline='alphabetic';
+  }
   function dog(b, t){
     if(!b || ['waiting','defeated'].includes(b.state))return;
     ctx.save();ctx.translate(b.x+b.w/2,b.y);ctx.scale(-b.direction,1);
@@ -83,10 +95,25 @@ export function createRenderer(canvas) {
     if(b.state==='intro') { line(-26,-4,-20,1,'#fff3a0',2); line(25,-3,20,1,'#fff3a0',2); line(-28,6,-23,7,'#ffb229',2); }
     if(b.state==='warnLeap'){line(-30,-8,30,-8,'#ffdd73',2);}
     ctx.restore();
-    if(b.state==='intro'){round(b.x-28,b.y-31,114,20,9,'#251b19dd');ctx.fillStyle='#ffd37a';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('看我的橙色耳机！',b.x+b.w/2,b.y-17);}
-    if(b.speech>0){const x=b.x+b.w/2;round(x-48,b.y-27,96,19,8,'#fff7df');ctx.fillStyle='#503323';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('感谢骡子爹',x,b.y-14);}
+    if(b.state==='intro')bubble('看我的橙色耳机！',b.x+b.w/2,b.y-10,'#ffd37a','#251b19ee','#ffd37a99');
+    if(b.speech>0)bubble('感谢骡子爹',b.x+b.w/2,b.y-6,'#4a2f1d','#fff7df','#cfae7e');
   }
-  function dropping(d){ctx.save();ctx.translate(d.x,d.y);oval(9,14,9,4,'#754023');oval(9,10,7,5,'#92512b');oval(10,6,5,4,'#a66332');oval(11,3,3,3,'#b77840');oval(7,10,1.2,1.2,'#fff1d2');oval(12,10,1.2,1.2,'#fff1d2');ctx.restore();}
+  function dropping(d){
+    const s=(d.w||18)/18;
+    ctx.save();ctx.translate(d.x+d.w/2-9*s,d.y+d.h/2-10.5*s);ctx.scale(s,s);
+    oval(9,14,9,4,'#754023');oval(9,10,7,5,'#92512b');oval(10,6,5,4,'#a66332');oval(11,3,3,3,'#b77840');oval(7,10,1.2,1.2,'#fff1d2');oval(12,10,1.2,1.2,'#fff1d2');ctx.restore();}
+  // Boss 丢出的橙色耳机：可以被子弹打掉，被打中时闪白
+  function headphone(w,t){
+    const cx=w.x+w.w/2, cy=w.y+w.h/2+Math.sin(t*7+w.x*0.05)*1.5, hot=w.flash>0;
+    ctx.lineCap='round';
+    ctx.strokeStyle=hot?'#fff2c6':'#ff8a1f';ctx.lineWidth=3.6;
+    ctx.beginPath();ctx.arc(cx,cy+1,w.w*0.44,Math.PI*1.02,Math.PI*1.98);ctx.stroke();
+    round(cx-w.w*0.52,cy-1,w.w*0.34,w.h*0.56,w.w*0.15,hot?'#fff6d8':'#ff9d2e');
+    round(cx+w.w*0.18,cy-1,w.w*0.34,w.h*0.56,w.w*0.15,hot?'#fff6d8':'#ff9d2e');
+    round(cx-w.w*0.46,cy+4,w.w*0.22,w.h*0.3,w.w*0.1,hot?'#f0c07a':'#c76a11');
+    round(cx+w.w*0.24,cy+4,w.w*0.22,w.h*0.3,w.w*0.1,hot?'#f0c07a':'#c76a11');
+    if(w.maxHealth && w.health<w.maxHealth)line(cx-w.w*0.5,cy+w.h*0.44,cx+w.w*0.5,cy+w.h*0.44,'#7f440e',2);
+  }
   return function render(game){
     ctx.setTransform(scale,0,0,scale,0,0);background(game.camera,game.level);ctx.save();ctx.translate(-game.camera,0);
     for(const d of game.level.decoration) decoration(d);
@@ -105,7 +132,7 @@ export function createRenderer(canvas) {
     for(const s of game.supplies){if(s.taken)continue;round(s.x,s.y+Math.sin(game.elapsed*5)*2,s.w,s.h,4,s.type==='grenade'?'#e6b36f':s.type?'#83b2d0':'#79caa0');ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText(({grenade:'雷',spread:'散',pierce:'穿',rapid:'疾',heavy:'重'})[s.type]||'+',s.x+7,s.y+11);}
     for(const e of game.enemies)enemy(e,game.elapsed);dog(game.boss,game.elapsed);
     for(const d of game.droppings) if(!d.destroyed)dropping(d);
-    for(const w of game.waves)round(w.x,w.y,w.w,w.h,5,'#ffb762');
+    for(const w of game.waves) headphone(w,game.elapsed);
     for(const s of game.enemyShots)oval(s.x+3,s.y+3,4,4,'#ff8b62');
     for(const b of game.bullets)oval(b.x+2,b.y+2,3,3,'#ffe895');
     for(const g of game.grenades)oval(g.x+3,g.y+3,4,4,'#e7b260');
