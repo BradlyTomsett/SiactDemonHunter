@@ -91,6 +91,7 @@ export function createInput(controls, onPause, canPlay) {
   }
 
   function setPointer(event, group) {
+    if (pointers.get(event.pointerId)?.action === "fire") return;
     const action = actionAt(event, group);
     const wasActive = active(action);
     pointers.set(event.pointerId, { action });
@@ -100,7 +101,7 @@ export function createInput(controls, onPause, canPlay) {
 
   for (const group of controls.querySelectorAll("[data-controls]")) {
     group.addEventListener("pointerdown", event => {
-      if (event.button !== 0 || !canPlay()) return;
+      if (event.button !== 0 || !canPlay() || !actionAt(event, group)) return;
       event.preventDefault();
       group.setPointerCapture(event.pointerId);
       setPointer(event, group);

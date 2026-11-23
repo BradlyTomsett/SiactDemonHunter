@@ -47,6 +47,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   game.bullets = [];
   game.enemyShots = [];
   game.grenades = [];
+  game.blasts = [];
   game.waves = [];
   game.droppings = [];
   game.dropTimer = 2.5;
@@ -165,20 +166,24 @@ function stepShots(game, fire, dt) {
   const p = game.player;
   p.cooldown = Math.max(0, p.cooldown - dt);
   if (fire && p.cooldown <= 0) {
-    const weapon = WEAPONS[p.weapon];
-    const x = p.x + p.w / 2 + p.aimX * 12 - 2;
-    const y = p.y + p.h / 2 + p.aimY * 12 - 2;
+    const kind = p.weapon;
+    const weapon = WEAPONS[kind];
+    const size = weapon.size;
+    const x = p.x + p.w / 2 + p.aimX * 12 - size / 2;
+    const y = p.y + p.h / 2 + p.aimY * 12 - size / 2;
     const angles = weapon.spread ? [-weapon.spread, 0, weapon.spread] : [0];
     for (const angle of angles) {
       const vx = (p.aimX * Math.cos(angle) - p.aimY * Math.sin(angle)) * weapon.speed;
       const vy = (p.aimX * Math.sin(angle) + p.aimY * Math.cos(angle)) * weapon.speed;
-      game.bullets.push({ x, y, w: 4, h: 4, vx, vy, life: weapon.lifetime, damage: weapon.damage, pierce: weapon.pierce || 1, hit: [] });
+      game.bullets.push({ x, y, w: size, h: size, vx, vy, kind, life: weapon.lifetime, damage: weapon.damage, pierce: weapon.pierce ?? 1, hit: [] });
     }
     p.cooldown = weapon.interval;
     p.flash = 0.06;
+    p.flashColor = weapon.color;
     if (p.ammo !== Infinity && --p.ammo <= 0) { p.weapon = 'basic'; p.ammo = Infinity; }
   }
-  const bossTargets = game.boss && !['waiting', 'defeated'].includes(game.boss.state) ? [game.boss] : [];
+  const targets = [...game.waves, ...game.enemyShots, ...game.enemies];
+  if (game.boss && game.boss.state !== 'waiting') targets.push(game.boss);
   game.bullets = game.bullets.filter(bullet => {
     const dx = bullet.vx * dt;
     const dy = bullet.vy * dt;
@@ -189,13 +194,12 @@ function stepShots(game, fire, dt) {
     if (game.level.platforms.some(solid => !solid.oneway && overlaps(sweep, solid))) return false;
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
     if (dropping) { dropping.destroyed = true; sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
-    const targets = [...game.waves, ...game.enemies, ...bossTargets];
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < VIEW.height;
     enemy.health = Math.max(0, enemy.health - bullet.damage);
     bullet.hit.push(enemy);
     enemy.flash = 0.12;
-    sparks(game, bullet.x + 4, bullet.y, "#f8de83", enemy.health === 0 ? 11 : 4);
+    sparks(game, bullet.x + bullet.w / 2, bullet.y + bullet.h / 2, WEAPONS[bullet.kind]?.color ?? '#ffb52e', enemy.health === 0 ? 9 : 3);
     return --bullet.pierce > 0;
   });
 }
@@ -206,11 +210,13 @@ function fireEnemyShot(game, enemy) {
   const ox = enemy.x + enemy.w / 2;
   const oy = enemy.y + enemy.h * 0.4;
   const angle = Math.atan2(p.y + p.h / 2 - oy, p.x + p.w / 2 - ox);
+  const size = 13;
+  const aimX = Math.cos(angle);
+  const aimY = Math.sin(angle);
   game.enemyShots.push({
-    x: ox - 3, y: oy - 3, w: 6, h: 6,
-    vx: Math.cos(angle) * type.shotSpeed,
-    vy: Math.sin(angle) * type.shotSpeed,
-    life: type.shotLife,
+    x: ox - size / 2, y: oy - size / 2, w: size, h: size,
+    vx: aimX * type.shotSpeed, vy: aimY * type.shotSpeed,
+    life: 2.3, health: 1, maxHealth: 1, flash: 0,
   });
 }
 
@@ -229,18 +235,6 @@ function stepEnemies(game, dt) {
       }
     } else if (enemy.type === 'gunner') {
       enemy.direction = p.x + p.w / 2 < enemy.x + enemy.w / 2 ? -1 : 1;
-      const distance = Math.abs(p.x - enemy.x);
-      const sameBand = Math.abs(p.y - enemy.y) < 90;
-      if (enemy.tell > 0) {
-        enemy.tell = Math.max(0, enemy.tell - dt);
-        if (enemy.tell === 0) fireEnemyShot(game, enemy);
-      } else {
-        enemy.cooldown = Math.max(0, enemy.cooldown - dt);
-        if (enemy.cooldown === 0 && distance < type.range && sameBand) {
-          enemy.tell = type.telegraph;
-          enemy.cooldown = type.interval;
-        }
-      }
     } else if (enemy.type === 'flyer') {
       enemy.phase += dt * type.frequency * Math.PI * 2;
       enemy.x += enemy.direction * type.speed * 0.55 * dt;
@@ -253,12 +247,24 @@ function stepEnemies(game, dt) {
       const target = diving ? p.y - 6 : enemy.baseY + Math.sin(enemy.phase) * type.amplitude;
       enemy.y = approach(enemy.y, target, 150 * dt);
     }
+
+    if (enemy.tell > 0) {
+      enemy.tell = Math.max(0, enemy.tell - dt);
+      if (enemy.tell === 0) fireEnemyShot(game, enemy);
+      continue;
+    }
+    enemy.cooldown = Math.max(0, enemy.cooldown - dt);
+    if (enemy.cooldown === 0 && Math.abs(p.x - enemy.x) < type.range && Math.abs(p.y - enemy.y) < 90) {
+      enemy.tell = type.telegraph;
+      enemy.cooldown = type.interval;
+    }
   }
 
   const shots = game.enemyShots;
   const respawns = game.respawns;
   const remainingShots = shots.filter(shot => {
     if (game.respawns !== respawns || game.status !== "playing") return false;
+    if (shot.health <= 0) return false;
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
     shot.life -= dt;
@@ -277,28 +283,37 @@ function stepGrenades(game, input, dt) {
   const p = game.player;
   if (input.grenade && p.grenades > 0) {
     p.grenades--;
-    game.grenades.push({ x: p.x + p.w / 2, y: p.y + 8, vx: p.facing * 210, vy: -250, fuse: 1.1 });
+    game.grenades.push({ x: p.x + p.w / 2 - 5, y: p.y + 8, w: 10, h: 10, vx: p.facing * 210, vy: -250, fuse: 1.1, spin: 0 });
   }
   game.grenades = game.grenades.filter(g => {
     const oldY = g.y;
     g.vy += 650 * dt;
     g.x += g.vx * dt;
     g.y += g.vy * dt;
+    g.spin += g.vx * dt * 0.045;
     for (const solid of game.level.platforms) {
       if (solid.oneway) continue;
-      if (g.vy > 0 && oldY + 6 <= solid.y && g.y + 6 >= solid.y && g.x + 6 > solid.x && g.x < solid.x + solid.w) {
-        g.y = solid.y - 6; g.vy = -Math.abs(g.vy) * 0.28; g.vx *= 0.7;
+      if (g.vy > 0 && oldY + g.h <= solid.y && g.y + g.h >= solid.y && g.x + g.w > solid.x && g.x < solid.x + solid.w) {
+        g.y = solid.y - g.h; g.vy = -Math.abs(g.vy) * 0.28; g.vx *= 0.7;
       }
     }
     g.fuse -= dt;
     if (g.fuse > 0 && g.y < VIEW.height + 20) return true;
-    const bossTargets = game.boss && !['waiting', 'defeated'].includes(game.boss.state) ? [game.boss] : [];
-    for (const enemy of [...game.enemies, ...bossTargets]) {
-      if (enemy.health && Math.hypot(enemy.x + enemy.w / 2 - g.x, enemy.y + enemy.h / 2 - g.y) < 74) {
-        enemy.health = Math.max(0, enemy.health - 4); enemy.flash = 0.15;
+    const x = g.x + g.w / 2;
+    const y = g.y + g.h / 2;
+    const radius = 80;
+    const inBlast = target => Math.hypot(target.x + target.w / 2 - x, target.y + target.h / 2 - y) < radius;
+    const targets = [...game.enemies, ...game.waves, ...game.enemyShots];
+    if (game.boss?.state !== 'waiting' && game.boss?.health > 0) targets.push(game.boss);
+    for (const target of targets) {
+      if (target.health > 0 && inBlast(target)) {
+        target.health = Math.max(0, target.health - 5);
+        target.flash = 0.15;
       }
     }
-    sparks(game, g.x, g.y, '#ffbf62', 18);
+    for (const drop of game.droppings) if (inBlast(drop)) drop.destroyed = true;
+    game.blasts.push({ x, y, radius, life: 0.36 });
+    sparks(game, x, y, '#ff9e24', 16);
     return false;
   });
 }
@@ -450,9 +465,9 @@ export function stepGame(game, input, dt) {
 
   game.checkpoint = Math.max(game.checkpoint, nearestCheckpoint(game, p));
   const beforeEnemies = game.respawns;
+  stepShots(game, input.fire, dt);
   stepEnemies(game, dt);
   if (game.respawns !== beforeEnemies || game.status !== "playing") return;
-  stepShots(game, input.fire, dt);
   stepGrenades(game, input, dt);
   const respawns = game.respawns;
   const interrupted = stepBoss(game, dt);
@@ -485,6 +500,7 @@ export function stepGame(game, input, dt) {
 
   const target = clamp(p.x - VIEW.width * 0.38, 0, Math.max(0, game.level.width - VIEW.width));
   game.camera = approach(game.camera, target, 420 * dt);
+  game.blasts = game.blasts.filter(blast => (blast.life -= dt) > 0);
   game.sparks = game.sparks.filter(spark => {
     spark.x += spark.vx * dt;
     spark.y += spark.vy * dt;

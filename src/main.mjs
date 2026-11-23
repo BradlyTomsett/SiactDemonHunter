@@ -17,14 +17,14 @@ const primary = byId("primary");
 const guide = byId("guide");
 const home = byId("home");
 const install = byId("install");
-const rotateInstall = byId("rotate-install");
 const fullscreen = byId("fullscreen");
+const orientationHint = byId("orientation-hint");
+const gameView = byId("world").parentElement;
 let installPrompt = null;
 let installRequested = false;
 const standalone = window.matchMedia('(display-mode: standalone)');
 const isAndroid = /Android/i.test(navigator.userAgent);
 const runsAsApp = () => standalone.matches || navigator.standalone === true;
-const rotate = byId("rotate");
 const touch = window.matchMedia("(pointer: coarse)");
 const portrait = window.matchMedia("(orientation: portrait)");
 const step = 1 / 120;
@@ -34,7 +34,6 @@ let carryLives = PLAYER.lives;
 let completedTime = 0;
 let game = null;
 let screen = "title";
-let rotationBlocked = false;
 let accumulator = 0;
 let lastTime = null;
 let previousHealth = -1;
@@ -43,7 +42,7 @@ let previousRespawns = 0;
 let noticeUntil = 0;
 let primaryAction = start;
 
-const input = createInput(controls, togglePause, () => screen === "playing" && !rotationBlocked);
+const input = createInput(controls, togglePause, () => screen === "playing");
 
 for (let i = 0; i < PLAYER.maxHealth; i++) {
   const heart = document.createElement("span");
@@ -66,14 +65,15 @@ function setScreen(next) {
 }
 
 function syncVisibility() {
-  const active = screen === "playing" && !rotationBlocked;
-  hud.hidden = screen === "title" || rotationBlocked;
+  const active = screen === "playing";
+  gameView.dataset.screen = screen;
+  hud.hidden = screen === "title";
   controls.hidden = !active || !touch.matches;
   pauseButton.hidden = !active;
   hint.hidden = !active;
   notice.hidden = true;
-  overlay.hidden = screen === "playing" || rotationBlocked;
-  rotate.hidden = !rotationBlocked;
+  overlay.hidden = active;
+  orientationHint.hidden = screen !== "title" || !touch.matches || !portrait.matches;
 }
 
 function panel(next, title, message, label, action) {
@@ -84,11 +84,10 @@ function panel(next, title, message, label, action) {
   primaryAction = action;
   home.hidden = next === "title";
   install.hidden = next !== "title" || runsAsApp();
-  rotateInstall.hidden = runsAsApp();
-  fullscreen.hidden = next !== "title";
+  fullscreen.hidden = next !== "title" && next !== "paused";
   guide.hidden = next !== "title";
   setScreen(next);
-  if (!rotationBlocked) primary.focus({ preventScroll: true });
+  primary.focus({ preventScroll: true });
 }
 
 function loadLevel(index, remainingLives) {
@@ -109,13 +108,12 @@ function showTitle() {
     "title",
     "逃离办公室",
     "你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。",
-    "开始第一关",
+    "开始游戏",
     start,
   );
 }
 
 function start() {
-  if (rotationBlocked) return;
   loadLevel(levelIndex, carryLives);
   byId("level-name").textContent = game.level.name;
   updateHud();
@@ -130,7 +128,6 @@ function pause(message = "点击继续，回到当前关卡。") {
 }
 
 function resume() {
-  if (rotationBlocked) return;
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   setScreen("playing");
 }
@@ -141,16 +138,10 @@ function togglePause() {
 }
 
 function updateDevice() {
-  const blocked = touch.matches && portrait.matches;
-  const orientationChanged = blocked !== rotationBlocked;
-  rotationBlocked = blocked;
   guide.textContent = touch.matches
-    ? "左手摇杆瞄准 · 右手跳跃、开火和投掷"
-    : "方向键瞄准 · 空格跳跃 · J 开火 · K 投掷";
-  if (orientationChanged) {
-    input.clear();
-    if (blocked) pause("横屏后点击继续。");
-  }
+    ? "左手移动和瞄准 · 按住射击连发"
+    : "方向键移动和瞄准 · 空格跳跃 · 按住 J 连发 · K 投掷";
+  input.clear();
   syncVisibility();
 }
 
@@ -247,17 +238,15 @@ fullscreen.addEventListener('click', async () => {
   }
 });
 function showInstallStatus(message) {
-  for (const id of ['install-status', 'rotate-install-status']) {
-    const status = byId(id);
-    status.textContent = message;
-    status.hidden = !message;
-  }
+  const status = byId('install-status');
+  status.textContent = message;
+  status.hidden = !message;
 }
 
 function confirmInstallRequest() {
   installPrompt = null;
   installRequested = true;
-  install.textContent = rotateInstall.textContent = '安装帮助';
+  install.textContent = '安装帮助';
   showInstallStatus(isAndroid
     ? '已确认安装，请等待 Chrome 处理。在手机主屏幕上滑，搜索“逃离办公室”。找到图标后，长按并选择“添加到主屏幕”。若找不到，回到 Chrome 菜单检查安装选项。'
     : '安装请求已提交，请在系统的应用列表里查找“逃离办公室”。');
@@ -277,7 +266,7 @@ window.addEventListener('beforeinstallprompt', event => {
   event.preventDefault();
   installPrompt = event;
   installRequested = false;
-  install.textContent = rotateInstall.textContent = '安装';
+  install.textContent = '安装';
 });
 window.addEventListener('appinstalled', confirmInstallRequest);
 
@@ -289,7 +278,7 @@ async function installGame() {
 
   const prompt = installPrompt;
   installPrompt = null;
-  install.disabled = rotateInstall.disabled = true;
+  install.disabled = true;
   try {
     await prompt.prompt();
     const { outcome } = await prompt.userChoice;
@@ -301,11 +290,10 @@ async function installGame() {
   } catch {
     showInstallHelp();
   } finally {
-    install.disabled = rotateInstall.disabled = false;
+    install.disabled = false;
   }
 }
 install.addEventListener('click', installGame);
-rotateInstall.addEventListener('click', installGame);
 primary.addEventListener("click", () => primaryAction());
 home.addEventListener("click", showTitle);
 pauseButton.addEventListener("click", togglePause);
@@ -324,7 +312,7 @@ document.addEventListener("visibilitychange", () => {
 function frame(now) {
   const seconds = lastTime === null ? 0 : Math.min(0.06, (now - lastTime) / 1000);
   lastTime = now;
-  if (screen === "playing" && !rotationBlocked) {
+  if (screen === "playing") {
     accumulator += seconds;
     while (accumulator >= step && game.status === "playing") {
       stepGame(game, input.read(), step);

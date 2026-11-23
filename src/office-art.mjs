@@ -3,8 +3,8 @@ import { GROUND, VIEW } from './levels.mjs';
 const { width: W, height: H } = VIEW;
 const BASES = new Set(['desk', 'floor', 'monitorTop', 'printerTop']);
 const MATERIALS = {
-  desk: ['#f5d7a8', '#c99a65', '#835637'],
-  floor: ['#eee5d5', '#b0a99d', '#676b73'],
+  desk: ['#ffe4ad', '#dea667', '#a8683e'],
+  floor: ['#f7eee0', '#cdbdb0', '#928789'],
   monitorTop: ['#747f89', '#2e3847', '#131923'],
   printerTop: ['#faf9ef', '#c5cdd1', '#667781'],
   keyboard: ['#555c68', '#292f3c', '#171921'],
@@ -32,7 +32,7 @@ export function createOfficeArt(ctx, { round, oval, line }) {
   }
 
   function background(camera, level) {
-    fill(0, 0, W, H, gradient(0, H, '#e3e8e7', '#b2bec2', '#66727b', '#24303d'));
+    fill(0, 0, W, H, gradient(0, H, '#f5fffd', '#d0e8e4', '#a6cac6', '#7aa8ad'));
     const ceiling = -(camera * .12 % 180);
     for (let x = ceiling - 180; x < W + 180; x += 180) {
       line(x, 0, x + 45, 70, '#b4bec2', 1);
@@ -44,12 +44,12 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     const partition = -(camera * .25 % 260);
     for (let x = partition - 260; x < W; x += 260) {
       fill(x + 12, 77, 46, 103, '#74676b');
-      fill(x + 15, 81, 40, 99, '#9a8582');
-      fill(x + 66, 79, 182, 63, gradient(79, 63, '#95acac', '#acc0be'));
+      fill(x + 15, 81, 40, 99, '#b49484');
+      fill(x + 66, 79, 182, 63, gradient(79, 63, '#a5c6bf', '#c4dfd8'));
       for (let y = 86; y < 142; y += 7) fill(x + 69, y, 176, 2, '#d0dad580');
       fill(x, 138, 256, 46, '#aebbbdcc');
       for (let y = 145; y < 180; y += 7) fill(x, y, 256, 2, '#e2e9e0b0');
-      fill(x, 184, 256, 15, '#aa5352');
+      fill(x, 184, 256, 15, '#d96f65');
       fill(x, 135, 3, 65, '#d9ded7');
 
       if (level.id === 'floor') {
@@ -59,11 +59,11 @@ export function createOfficeArt(ctx, { round, oval, line }) {
       }
       round(x + 181, 160, 19, 24, 4, '#c2c7bc');
       for (const [dx, dy, rx, ry] of [[-8, -10, 10, 5], [9, -16, 12, 6], [-3, -22, 7, 11], [9, -5, 9, 4]]) {
-        oval(x + 191 + dx, 160 + dy, rx, ry, '#627f70');
+        oval(x + 191 + dx, 160 + dy, rx, ry, '#55916f');
       }
     }
     // The part behind the jumping path has no sharp horizontal features.
-    fill(0, 164, W, H - 164, gradient(164, 135, '#59687500', '#455666d9', '#233344'));
+    fill(0, 164, W, H - 164, gradient(164, 135, '#dff3e600', '#d3e9e2ec', '#b2d3d0'));
   }
 
   function gaps(level, camera) {
@@ -178,7 +178,8 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     }
 
     // The rim coincides with the collision top and ends exactly at each edge.
-    fill(x, y, w, p.oneway ? 1.5 : 2, p.oneway ? '#b9e3e6' : '#fff0c7');
+    fill(x, y, w, p.oneway ? 3 : 4, '#55706c');
+    fill(x, y, w, p.oneway ? 1.5 : 2, p.oneway ? '#c7f5f8' : '#fff3cc');
     fill(x, y + 2, 1, Math.min(h - 2, 8), '#fff0c7');
     fill(end - 1, y + 2, 1, Math.min(h - 2, 8), '#fff0c7');
   }

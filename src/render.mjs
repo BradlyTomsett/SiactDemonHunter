@@ -1,4 +1,4 @@
-import { VIEW } from './levels.mjs';
+import { VIEW, WEAPONS } from './levels.mjs';
 import { createOfficeArt } from './office-art.mjs';
 
 export function createRenderer(canvas) {
@@ -10,6 +10,7 @@ export function createRenderer(canvas) {
   const oval = (x,y,rx,ry,color) => { ctx.fillStyle=color; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2); ctx.fill(); };
   const line = (x1,y1,x2,y2,color,width=1) => { ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round'; ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke(); };
   const office = createOfficeArt(ctx, { round, oval, line });
+  const headphoneBand = new Path2D('M-9 3 C-12 -12 12 -12 9 3');
 
   function player(p, t) {
     ctx.save();
@@ -30,7 +31,7 @@ export function createRenderer(canvas) {
     leg(2.2, stride, '#4f6471');
     round(-7.6, 9, 4.7, 10, 1.5, '#283c47');
     round(-5.7, 9, 10.9, 10.5, 2.7, '#283846');
-    round(-4.6, 9.5, 8.5, 7.7, 2.2, '#de8642');
+    round(-4.6, 9.5, 8.5, 7.7, 2.2, '#fa8b33');
     line(-3.1, 11, -2.8, 16, '#f8bd72', 1.1);
     round(-4.3, 15.6, 8.1, 3.3, 1, '#485a67');
     oval(.7, 6.3, 4.2, 4.7, '#dda47c');
@@ -47,13 +48,12 @@ export function createRenderer(canvas) {
     round(4, -1.7, 8, 3.7, 1, '#273440');
     round(6, -1.8, 6, 1, .4, '#abbac2');
     if (p.flash > 0) {
-      oval(15.5, 0, 4.4, 2.5, '#ffab42');
+      oval(15.5, 0, 4.4, 2.5, p.flashColor ?? '#ffab42');
       oval(14.2, 0, 2.7, 1, '#fff4aa');
     }
     ctx.restore();
     ctx.restore();
   }
-  function enemy(e,t){if(!e.health)return;const color=e.flash?'#ffe8d4':e.type==='gunner'?'#5d8795':e.type==='flyer'?'#a26c91':'#b66383';oval(e.x+e.w/2,e.y+e.h*.58,e.w*.48,e.h*.42,color);oval(e.x+e.w/2,e.y+e.h*.33,e.w*.38,e.h*.32,color);oval(e.x+(e.direction<0?7:e.w-7),e.y+e.h*.38,2.5,2.5,'#fff4c3');if(e.type==='flyer'){oval(e.x+1,e.y+6,7,3,'#d7a1be');oval(e.x+e.w-1,e.y+6,7,3,'#d7a1be');}else{line(e.x+5,e.y+e.h-3,e.x+3,e.y+e.h,'#493847',4);line(e.x+e.w-5,e.y+e.h-3,e.x+e.w-3,e.y+e.h,'#493847',4);}}
   // 台词气泡：20px 粗体（原来 10px），带描边、投影和小尾巴，明显突出
   function bubble(text,cx,baseY,fg,bg,border){
     ctx.font='bold 20px sans-serif';
@@ -67,16 +67,22 @@ export function createRenderer(canvas) {
     ctx.textBaseline='alphabetic';
   }
   function dog(b, t){
-    if(!b || ['waiting','defeated'].includes(b.state))return;
+    if (!b || b.state === 'waiting' || b.state === 'defeated' || (!b.health && b.state !== 'dying')) return;
+    const puppy = Boolean(b.type);
     const intro = b.state === 'intro';
     const dashing = b.state === 'dash';
-    const gait = dashing ? Math.sin(t * 24) * 4 : 0;
-    const bob = intro ? Math.sin(t * 6) * 1.5 : dashing ? Math.abs(gait) * .6 : 0;
+    const gait = dashing || b.type === 'patrol' ? Math.sin(t * (dashing ? 24 : 14)) * 4 : 0;
+    const bob = intro ? Math.sin(t * 6) * 1.5 : 0;
     ctx.save();
     ctx.translate(b.x + b.w / 2, b.y + bob);
-    ctx.scale(-b.direction, 1);
+    ctx.scale(b.direction * b.w / 64, b.h / 49);
     if (b.state === 'dying') ctx.globalAlpha = Math.max(0, b.timer / .8);
 
+    if (b.type === 'flyer') {
+      const spread = Math.sin(t * 24) * 5;
+      oval(-18, 28 + spread, 11, 5, '#2bdee9');
+      oval(17, 27 - spread, 11, 5, '#78f3f2');
+    }
     const coat = ctx.createLinearGradient(0, 4, 0, 46);
     coat.addColorStop(0, b.flash ? '#fff4dc' : '#e3a566');
     coat.addColorStop(1, '#884a32');
@@ -85,6 +91,7 @@ export function createRenderer(canvas) {
     line(-25, 32 + tail * .35, -28, 33 + tail * .62, '#c18154', 4);
     oval(-2, 32, 22, 13, coat);
     oval(6, 34, 12, 12, '#edc399');
+    if (b.type === 'gunner') line(-7, 30, 15, 31, '#226ec9', 4);
     for (const [x, stride] of [[-13, gait], [13, -gait]]) {
       line(x, 35, x + stride, 45, '#9b5d40', 7);
       oval(x + stride + 1, 46, 4.7, 2.5, '#e2a77e');
@@ -111,7 +118,7 @@ export function createRenderer(canvas) {
     oval(1, 19, 1.6, .8, '#a2938a');
     line(0, 22, 0, 25, '#754d3d', 1);
 
-    ctx.strokeStyle = '#fa711d';
+    ctx.strokeStyle = b.tell > 0 ? '#ffbc24' : '#ff6d13';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(-21, 12);
@@ -119,7 +126,7 @@ export function createRenderer(canvas) {
     ctx.stroke();
     for (const side of [-1, 1]) {
       line(side * 20, 11, side * 18, 19, '#fe7b1c', 4);
-      oval(side * 17, 19, 4.4, 3.7, '#ff9a32');
+      oval(side * 17, 19, 4.4, 3.7, b.tell > 0 ? '#fff075' : '#ff8e21');
       oval(side * 17, 18, 2.1, .9, '#ffe6a8');
     }
     ctx.restore();
@@ -131,25 +138,94 @@ export function createRenderer(canvas) {
       line(28, 10, 32, 8, '#ffb229', 2);
     }
     if (b.state === 'warnLeap') line(-29, -8, 29, -8, '#ffdd73', 2);
+    if (b.tell > 0) {
+      oval(0, -6, 5, 5, '#cf451d');
+      line(0, -8.5, 0, -6, '#fff9df', 1.5);
+      oval(0, -3.7, .8, .8, '#fff9df');
+    }
     ctx.restore();
-    if(b.state==='intro' && b.speech<=0)bubble('看我的橙色耳机！',b.x+b.w/2,b.y-10,'#ffd37a','#251b19ee','#ffd37a99');
+    if (!puppy && b.state==='intro' && b.speech<=0)bubble('看我的橙色耳机！',b.x+b.w/2,b.y-10,'#873000','#fff3d5','#fb9a51');
     if(b.speech>0)bubble('感谢骡子爹',b.x+b.w/2,b.y-6,'#4a2f1d','#fff7df','#cfae7e');
   }
   function dropping(d){
     const s=(d.w||18)/18;
     ctx.save();ctx.translate(d.x+d.w/2-9*s,d.y+d.h/2-10.5*s);ctx.scale(s,s);
     oval(9,14,9,4,'#754023');oval(9,10,7,5,'#92512b');oval(10,6,5,4,'#a66332');oval(11,3,3,3,'#b77840');oval(7,10,1.2,1.2,'#fff1d2');oval(12,10,1.2,1.2,'#fff1d2');ctx.restore();}
-  // Boss 丢出的橙色耳机：可以被子弹打掉，被打中时闪白
-  function headphone(w,t){
-    const cx=w.x+w.w/2, cy=w.y+w.h/2+Math.sin(t*7+w.x*0.05)*1.5, hot=w.flash>0;
-    ctx.lineCap='round';
-    ctx.strokeStyle=hot?'#fff2c6':'#ff8a1f';ctx.lineWidth=3.6;
-    ctx.beginPath();ctx.arc(cx,cy+1,w.w*0.44,Math.PI*1.02,Math.PI*1.98);ctx.stroke();
-    round(cx-w.w*0.52,cy-1,w.w*0.34,w.h*0.56,w.w*0.15,hot?'#fff6d8':'#ff9d2e');
-    round(cx+w.w*0.18,cy-1,w.w*0.34,w.h*0.56,w.w*0.15,hot?'#fff6d8':'#ff9d2e');
-    round(cx-w.w*0.46,cy+4,w.w*0.22,w.h*0.3,w.w*0.1,hot?'#f0c07a':'#c76a11');
-    round(cx+w.w*0.24,cy+4,w.w*0.22,w.h*0.3,w.w*0.1,hot?'#f0c07a':'#c76a11');
-    if(w.maxHealth && w.health<w.maxHealth)line(cx-w.w*0.5,cy+w.h*0.44,cx+w.w*0.5,cy+w.h*0.44,'#7f440e',2);
+  function headphone(shot, t) {
+    if (shot.health <= 0) return;
+    ctx.save();
+    ctx.translate(shot.x + shot.w / 2, shot.y + shot.h / 2);
+    ctx.rotate(Math.sin(t * 15) * .18);
+    ctx.scale(shot.w / 22, shot.h / 24);
+    ctx.strokeStyle = '#9a3917';
+    ctx.lineWidth = 5;
+    ctx.stroke(headphoneBand);
+    ctx.strokeStyle = shot.flash > 0 ? '#fff7bd' : '#ff8423';
+    ctx.lineWidth = 3;
+    ctx.stroke(headphoneBand);
+    for (const side of [-1, 1]) {
+      oval(side * 8, 4, 3.5, 4.3, '#9b351a');
+      oval(side * 8, 3, 2.5, 3.1, '#ff9a29');
+      oval(side * 8, 2, 1.1, .8, '#fff0a2');
+    }
+    ctx.restore();
+  }
+
+  function projectile(bullet) {
+    ctx.save();
+    ctx.translate(bullet.x + bullet.w / 2, bullet.y + bullet.h / 2);
+    ctx.rotate(Math.atan2(bullet.vy, bullet.vx));
+    const color = WEAPONS[bullet.kind]?.color ?? WEAPONS.basic.color;
+    if (bullet.kind === 'spread') {
+      line(-9, 0, 0, 0, '#bf2057', 3.5);
+      oval(0, 0, 3.4, 2.4, color);
+      oval(1, 0, 1.5, 1.1, '#fff4e1');
+    } else if (bullet.kind === 'pierce') {
+      line(-22, 0, 4, 0, '#075481', 4.5);
+      line(-21, 0, 4, 0, color, 2.5);
+      line(-6, 0, 5, 0, '#ebffff', 1.3);
+    } else if (bullet.kind === 'rapid') {
+      line(-10, 0, 2, 0, '#43620c', 3.8);
+      line(-9, 0, 2, 0, color, 2);
+      line(-5, 2.7, -1, 2.7, '#b8ed65', 1.2);
+    } else if (bullet.kind === 'heavy') {
+      line(-16, 0, -4, 0, '#7130b9', 5);
+      oval(0, 0, 6.3, 4.8, '#4e2284');
+      oval(0, 0, 4.7, 3.5, color);
+      oval(2, -.4, 2, 1.8, '#fff3fb');
+    } else {
+      oval(0, 0, 3.4, 2.4, '#874b16');
+      oval(.5, 0, 2.4, 1.4, color);
+    }
+    ctx.restore();
+  }
+
+  function grenade(item, t) {
+    ctx.save();
+    ctx.translate(item.x + item.w / 2, item.y + item.h / 2);
+    ctx.rotate(item.spin);
+    round(-6, -6, 12, 13, 4, '#317a67');
+    round(-5, -5, 10, 10, 3, '#82ba81');
+    for (let y = -3; y <= 5; y += 3) line(-4.5, y, 4.5, y, '#285848', 1.35);
+    line(-.5, -4.5, -.5, 5, '#234c40', 1.15);
+    round(-2, -8, 5, 3.5, 1, '#263a48');
+    oval(2.1, -6.7, 1.6, 1.5, Math.sin(t * 40) > 0 ? '#ff6641' : '#ffe375');
+    ctx.restore();
+  }
+
+  function explosion(blast) {
+    const progress = 1 - blast.life / .36;
+    const radius = Math.max(4, blast.radius * Math.sqrt(progress));
+    ctx.save();
+    ctx.globalAlpha = (1 - progress) * .65;
+    oval(blast.x, blast.y, radius, radius, '#ffb946');
+    ctx.strokeStyle = '#ff7338';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(blast.x, blast.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    oval(blast.x, blast.y, radius * .5, radius * .5, '#fff5bc');
+    ctx.restore();
   }
   return function render(game){
     ctx.setTransform(scale,0,0,scale,0,0);
@@ -187,14 +263,35 @@ export function createRenderer(canvas) {
     }
     for(const [i,c] of game.level.checkpoints.entries()){line(c.x,c.y-26,c.x,c.y,'#d7e8d4',2);round(c.x,c.y-26,14,9,3,i<=game.checkpoint?'#72e5ad':'#678483');}
     if(!game.level.boss || game.boss?.state==='defeated'){const e=game.level.exit;round(e.x-4,e.y-4,e.w+8,e.h+4,9,'#bbdbc4');round(e.x,e.y,e.w,e.h,7,'#416e68');ctx.fillStyle='#fff7d4';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('出口',e.x+e.w/2,e.y-8);}
-    for(const s of game.supplies){if(s.taken)continue;round(s.x,s.y+Math.sin(game.elapsed*5)*2,s.w,s.h,4,s.type==='grenade'?'#e6b36f':s.type?'#83b2d0':'#79caa0');ctx.fillStyle='#fff';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText(({grenade:'雷',spread:'散',pierce:'穿',rapid:'疾',heavy:'重'})[s.type]||'+',s.x+7,s.y+11);}
-    for(const e of game.enemies)enemy(e,game.elapsed);dog(game.boss,game.elapsed);
+    for (const s of game.supplies) {
+      if (s.taken || !office.visible(s, game.camera)) continue;
+      const y = s.y + Math.sin(game.elapsed * 5) * 2;
+      const color = s.type === 'grenade' ? '#ffc454' : WEAPONS[s.type]?.color ?? '#64ddb4';
+      round(s.x - 1, y - 1, s.w + 2, s.h + 2, 5, '#27464f');
+      round(s.x, y, s.w, s.h, 4, color);
+      ctx.fillStyle = '#192d45';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(({grenade:'雷',spread:'散',pierce:'穿',rapid:'疾',heavy:'重'})[s.type] ?? '+', s.x + 7, y + 10.5);
+    }
+    for (const e of game.enemies) if (office.visible(e, game.camera)) dog(e, game.elapsed);
+    dog(game.boss,game.elapsed);
     for(const d of game.droppings) if(!d.destroyed)dropping(d);
     for(const w of game.waves) headphone(w,game.elapsed);
-    for(const s of game.enemyShots)oval(s.x+3,s.y+3,4,4,'#ff8b62');
-    for(const b of game.bullets)oval(b.x+2,b.y+2,3,3,'#ffe895');
-    for(const g of game.grenades)oval(g.x+3,g.y+3,4,4,'#e7b260');
+    for(const s of game.enemyShots) headphone(s,game.elapsed);
+    for(const b of game.bullets) projectile(b);
+    for(const g of game.grenades) grenade(g,game.elapsed);
+    for(const blast of game.blasts) explosion(blast);
     player(game.player,game.elapsed);for(const s of game.sparks)oval(s.x,s.y,1.5,1.5,s.color);ctx.restore();
-    const b=game.boss;if(b && !['waiting','defeated'].includes(b.state)){round(210,57,220,18,9,'#172c33dd');round(213,60,214*Math.max(0,b.health)/b.maxHealth,12,6,'#f28b52');ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText(game.level.boss.label,320,70);}
+    const boss = game.boss;
+    if (boss && !['waiting', 'defeated'].includes(boss.state)) {
+      round(208, 56, 224, 20, 10, '#963827');
+      round(210, 58, 220, 16, 8, '#ffe1c7');
+      round(212, 60, 216 * boss.health / boss.maxHealth, 12, 6, '#ff9561');
+      ctx.fillStyle = '#5c2525';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(game.level.boss.label, 320, 69.5);
+    }
   };
 }

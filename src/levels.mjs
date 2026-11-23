@@ -9,31 +9,34 @@ export const PLAYER = {
   knockbackSpeed: 145, knockbackTime: 0.16,
 };
 
-export const WEAPON = { interval: 0.16, speed: 478, lifetime: 0.92, damage: 1 };
 export const WEAPONS = {
-  basic: { name: '普通枪', ammo: Infinity, ...WEAPON },
-  spread: { name: '散射枪', ammo: 30, interval: 0.32, speed: 410, lifetime: 0.65, damage: 1, spread: 0.23 },
-  pierce: { name: '穿透枪', ammo: 20, interval: 0.4, speed: 560, lifetime: 1, damage: 2, pierce: 2 },
-  rapid: { name: '疾射枪', ammo: 70, interval: 0.085, speed: 500, lifetime: 0.85, damage: 1 },
-  heavy: { name: '重击枪', ammo: 12, interval: 0.6, speed: 330, lifetime: 1, damage: 4 },
+  basic: { name: '普通枪', ammo: Infinity, interval: 0.16, speed: 478, lifetime: 0.92, damage: 1, size: 4, color: '#ffb52e' },
+  spread: { name: '散射枪', ammo: 40, interval: 0.135, speed: 520, lifetime: 0.65, damage: 1, size: 5, spread: 0.19, color: '#ff558e' },
+  pierce: { name: '穿透枪', ammo: 32, interval: 0.12, speed: 680, lifetime: 0.9, damage: 2, size: 5, pierce: 3, color: '#00d7f5' },
+  rapid: { name: '疾射枪', ammo: 98, interval: 0.064, speed: 630, lifetime: 0.78, damage: 1, size: 4, color: '#8aff43' },
+  heavy: { name: '重击枪', ammo: 18, interval: 0.14, speed: 475, lifetime: 0.95, damage: 4, size: 9, color: '#ad60ff' },
 };
 
-// speed 只对会走动的类型生效；gunner 站桩射击，flyer 在巡逻区间内浮动。
+// 三种小狗共用耳机弹，移动方式、射程和射击节奏各有区别。
 export const ENEMIES = {
-  patrol: { width: 25, height: 20, speed: 58, health: 3, damage: 1, label: '巡逻怪' },
+  patrol: {
+    width: 28, height: 22, speed: 58, health: 3, damage: 1,
+    range: 170, interval: 3.5, telegraph: 0.65, shotSpeed: 151,
+  },
   gunner: {
-    width: 24, height: 26, speed: 0, health: 4, damage: 1, label: '射击怪',
-    range: 330, interval: 1.9, telegraph: 0.5, shotSpeed: 205, shotLife: 2.4,
+    width: 27, height: 26, speed: 0, health: 4, damage: 1,
+    range: 310, interval: 2, telegraph: 0.55, shotSpeed: 195,
   },
   flyer: {
-    width: 22, height: 18, speed: 74, health: 2, damage: 1, label: '飞怪',
+    width: 25, height: 20, speed: 74, health: 2, damage: 1,
     amplitude: 26, frequency: 1.7,
+    range: 200, interval: 3.2, telegraph: 0.7, shotSpeed: 165,
   },
 };
 
 // 第 2 段与最终段都有 Boss，其余段抵达出口即可通关。
 export const BOSS = {
-  health: 60, width: 58, height: 48, label: '6狗',
+  health: 60, width: 78, height: 64, label: '6狗',
   trigger: 340, arenaLeft: 320, arenaRight: 960, spawnX: 690, ground: 286,
   intro: 3.0, warning: 1, dashSpeed: 250, dashDuration: 1.1,
   waveSpeed: 175, recovery: 1.1, damage: 1,
