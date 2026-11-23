@@ -1,4 +1,4 @@
-import { VIEW } from "./levels.mjs";
+import { BOSS, VIEW } from "./levels.mjs";
 
 const { width: W, height: H } = VIEW;
 
@@ -174,14 +174,18 @@ export function createRenderer(canvas) {
     box(-5, 0, 11, 2, "#ffe8a3");
     box(0, 4, 9, 5, "#284752");
     box(5, 4, 3, 2, "#a9ded3");
-    box(4, 13, 10, 5, "#63848c");
-    box(9, 12, 7, 3, "#c0d0c8");
     box(-6, 21, 5, 6 + stride, "#86a8ab");
     box(2, 21, 5, 6 - stride, "#576f7e");
+    ctx.save();
+    ctx.translate(3, 14);
+    ctx.rotate(Math.atan2(p.aimY, p.aimX * p.facing));
+    box(0, -2, 10, 5, "#63848c");
+    box(6, -3, 7, 3, "#c0d0c8");
     if (p.flash > 0) {
-      box(17, 11, 8, 5, "#ffdd75");
-      box(18, 9, 3, 9, "#fff0b1");
+      box(14, -3, 8, 5, "#ffdd75");
+      box(15, -5, 3, 9, "#fff0b1");
     }
+    ctx.restore();
     ctx.restore();
   }
 
@@ -199,6 +203,29 @@ export function createRenderer(canvas) {
     if (flash) box(x + 3, y - 5, health * 6, 2, "#f8a2a1");
   }
 
+  function drawBoss(boss) {
+    if (boss.state === 'waiting' || boss.state === 'defeated') return;
+    const { x, y, w, h } = boss;
+    ctx.save();
+    if (boss.state === 'dying') ctx.globalAlpha = Math.max(0, boss.timer / 0.8);
+    ctx.translate(Math.round(x + w / 2), Math.round(y));
+    ctx.scale(-boss.direction, 1);
+    const fur = boss.flash > 0 ? '#fff1d5' : '#c69568';
+    box(-24, 20, 48, 24, '#825b48');
+    box(-22, 17, 44, 24, fur);
+    box(-20, 38, 10, 10, '#77513e'); box(11, 38, 10, 10, '#77513e');
+    box(-25, 7, 13, 20, '#805541'); box(13, 7, 12, 20, '#805541');
+    box(-20, 3, 40, 31, fur); box(-16, 0, 32, 5, fur);
+    box(-11, 16, 5, 4, '#302831'); box(6, 16, 5, 4, '#302831');
+    box(-10, 23, 20, 10, '#edc9a0'); box(-3, 22, 6, 4, '#513934');
+    if (boss.state === 'warnWave') box(-4, 29, 8, 4, '#573b39');
+    box(-22, 7, 4, 17, '#eb7b35'); box(-20, 4, 7, 4, '#eb7b35');
+    box(-15, 2, 29, 3, '#eb7b35'); box(12, 4, 6, 4, '#eb7b35');
+    box(-20, 13, 8, 9, boss.state === 'warnWave' ? '#ffcf68' : '#f39042');
+    if (boss.state === 'warnDash') { box(-27, -7, 54, 3, '#ffda72'); box(-20, -12, 40, 3, '#e88b4b'); }
+    ctx.restore();
+  }
+
   return function render(game) {
     const t = game.elapsed;
     background(game.camera);
@@ -207,19 +234,36 @@ export function createRenderer(canvas) {
     for (const decoration of game.level.decoration) decorate(decoration);
     for (const tile of game.level.platforms) platform(tile);
     for (const hazard of game.level.hazards) box(hazard.x, hazard.y, hazard.w, hazard.h, "#e07966");
-    portal(game.level.exit, t);
+    if (game.boss.state === 'defeated') portal(game.level.exit, t);
     for (const supply of game.supplies) {
       if (supply.taken) continue;
       const y = supply.y + Math.sin(t * 5) * 2;
       box(supply.x, y, supply.w, supply.h, "#273c43");
-      box(supply.x + 1, y + 1, 12, 12, "#69a98a");
+      box(supply.x + 1, y + 1, 12, 12, supply.type === 'grenade' ? '#dca255' : supply.type ? '#729bc5' : '#69a98a');
       box(supply.x + 3, y + 6, 8, 2, "#e3f7cb");
       box(supply.x + 6, y + 3, 2, 8, "#e3f7cb");
+      if (supply.type) {
+        ctx.fillStyle = '#ffffff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+        const labels = { grenade: '雷', spread: '散', pierce: '穿', rapid: '疾', heavy: '重' };
+        ctx.fillText(labels[supply.type], supply.x + 7, y - 3);
+      }
     }
     for (const enemy of game.enemies) drawEnemy(enemy, t);
+    drawBoss(game.boss);
+    for (const wave of game.waves) { box(wave.x, wave.y, wave.w, wave.h, '#ffba6a'); box(wave.x + 3, wave.y + 4, 5, 12, '#fff0b2'); }
     for (const bullet of game.bullets) box(bullet.x, bullet.y, bullet.w, bullet.h, "#ffe78a");
+    for (const grenade of game.grenades) { box(grenade.x, grenade.y, 6, 6, '#e5ab54'); box(grenade.x + 2, grenade.y - 2, 2, 2, '#f7e5a8'); }
     drawPlayer(game.player, t);
     for (const spark of game.sparks) box(spark.x, spark.y, 2, 2, spark.color);
     ctx.restore();
+    const boss = game.boss;
+    if (boss && !['waiting', 'defeated'].includes(boss.state)) {
+      box(210, 57, 220, 18, '#14262d');
+      box(212, 59, 216, 14, '#405357');
+      box(213, 60, 214 * Math.max(0, boss.health) / BOSS.health, 12, '#e58257');
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('6狗', 320, 70);
+    }
   };
 }
+

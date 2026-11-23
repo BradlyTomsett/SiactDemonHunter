@@ -17,18 +17,21 @@
       <div class="hud-left">
         <span class="level-name" id="level-name"></span>
         <span class="health" id="health" aria-label="生命"></span>
+        <span id="equipment"></span>
+        <span class="lives" id="lives" aria-label="剩余命数"></span>
       </div>
       <button class="pause" id="pause" type="button">暂停</button>
     </header>
     <p id="hint" class="hint" hidden></p>
+    <p id="notice" class="notice" role="status" hidden></p>
 
     <div class="controls" id="controls" hidden>
-      <div class="control-group move" data-controls>
-        <button class="pad" type="button" data-action="left" aria-label="向左"><span>◀</span>左</button>
-        <button class="pad" type="button" data-action="right" aria-label="向右"><span>▶</span>右</button>
+      <div class="stick-zone" id="stick-zone" aria-label="左侧触摸移动与瞄准">
+        <div class="joystick" id="joystick" hidden><span class="stick-knob" aria-hidden="true"></span></div>
       </div>
       <div class="control-group attacks" data-controls>
         <button class="pad" type="button" data-action="jump"><span>↑</span>跳跃</button>
+        <button class="pad" type="button" data-action="grenade"><span>●</span>手榴弹</button>
         <button class="pad fire" type="button" data-action="fire"><span>✦</span>开火</button>
       </div>
     </div>
@@ -53,3 +56,4 @@
   <script type="module" src="./src/main.mjs"></script>
 </body>
 </html>
+

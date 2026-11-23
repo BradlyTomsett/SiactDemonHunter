@@ -1,12 +1,14 @@
 import { createGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
-import { LEVELS, PLAYER } from "./levels.mjs";
+import { LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
 
 const byId = id => document.getElementById(id);
 const render = createRenderer(byId("world"));
 const hud = byId("hud");
 const health = byId("health");
+const lives = byId("lives");
+const notice = byId("notice");
 const hint = byId("hint");
 const controls = byId("controls");
 const pauseButton = byId("pause");
@@ -26,6 +28,9 @@ let rotationBlocked = false;
 let accumulator = 0;
 let lastTime = null;
 let previousHealth = -1;
+let previousLives = -1;
+let previousRespawns = 0;
+let noticeUntil = 0;
 let primaryAction = start;
 
 const input = createInput(controls, togglePause, () => screen === "playing" && !rotationBlocked);
@@ -50,6 +55,7 @@ function syncVisibility() {
   controls.hidden = !active || !touch.matches;
   pauseButton.hidden = !active;
   hint.hidden = !active;
+  notice.hidden = true;
   overlay.hidden = screen === "playing" || rotationBlocked;
   rotate.hidden = !rotationBlocked;
 }
@@ -78,6 +84,9 @@ function showTitle() {
 function start() {
   if (rotationBlocked) return;
   game = createGame(LEVELS[levelIndex]);
+  previousRespawns = game.respawns;
+  previousHealth = -1;
+  previousLives = -1;
   byId("level-name").textContent = game.level.name;
   updateHud();
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
@@ -106,8 +115,8 @@ function updateDevice() {
   const orientationChanged = blocked !== rotationBlocked;
   rotationBlocked = blocked;
   guide.textContent = touch.matches
-    ? "左手移动 · 右手跳跃和开火"
-    : "方向键移动 · 空格跳跃 · J 开火";
+    ? "左手摇杆瞄准 · 右手跳跃、开火和投掷"
+    : "方向键瞄准 · 空格跳跃 · J 开火 · K 投掷";
   if (orientationChanged) {
     input.clear();
     if (blocked) pause("横屏后点击继续。");
@@ -115,12 +124,31 @@ function updateDevice() {
   syncVisibility();
 }
 
+function showNotice(message) {
+  notice.textContent = message;
+  notice.hidden = false;
+  noticeUntil = performance.now() + 2200;
+}
+
 function updateHud() {
   const hp = game.player.health;
+  const weapon = WEAPONS[game.player.weapon];
+  byId('equipment').textContent = `${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  手榴弹 ${game.player.grenades}/6`;
   if (hp !== previousHealth) {
     health.setAttribute("aria-label", `生命 ${hp} / ${PLAYER.maxHealth}`);
     for (const [i, heart] of [...health.children].entries()) heart.classList.toggle("empty", i >= hp);
     previousHealth = hp;
+  }
+  if (game.respawns !== previousRespawns) {
+    previousRespawns = game.respawns;
+    showNotice(`${game.respawnReason}还剩 ${game.lives + 1} 条命`);
+  }
+  if (game.lives !== previousLives) {
+    const totalLives = game.status === 'lost' ? 0 : game.lives + 1;
+    lives.textContent = `×${totalLives}`;
+    lives.setAttribute("aria-label", `剩余命数 ${totalLives}`);
+    lives.classList.toggle("depleted", game.lives === 0);
+    previousLives = game.lives;
   }
   let entry;
   for (const candidate of game.level.hints) {
@@ -133,7 +161,7 @@ function updateHud() {
 
 function finish() {
   if (game.status === "lost") {
-    panel("lost", "行动失败", game.reason, "重试本关", start);
+    panel("lost", "行动失败", game.reason, "再来一局", start);
   } else if (levelIndex < LEVELS.length - 1) {
     panel("cleared", "本关通过", "已抵达出口。", "下一关", () => {
       levelIndex++;
@@ -171,9 +199,11 @@ function frame(now) {
     updateHud();
     if (game.status !== "playing") finish();
   }
+  if (!notice.hidden && performance.now() > noticeUntil) notice.hidden = true;
   render(game);
   requestAnimationFrame(frame);
 }
 
 updateDevice();
 requestAnimationFrame(frame);
+
