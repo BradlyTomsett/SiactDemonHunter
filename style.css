@@ -208,6 +208,14 @@ h1 span { color: var(--amber); }
 .primary, .secondary, .pause { border-radius:999px; }
 
 .rotate-install { margin-top: 20px; min-width: 120px; }
+.install-status, .rotate .install-status {
+  max-width: 38em;
+  margin: 10px auto 0;
+  color: #ffe2ad;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.rotate .install-status { max-width: min(32em, 84vw); }
 
 /* 鲜明的办公室配色与半透明游戏界面 */
 :root { --amber: #ffad3b; }

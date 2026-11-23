@@ -20,6 +20,10 @@ const install = byId("install");
 const rotateInstall = byId("rotate-install");
 const fullscreen = byId("fullscreen");
 let installPrompt = null;
+let installRequested = false;
+const standalone = window.matchMedia('(display-mode: standalone)');
+const isAndroid = /Android/i.test(navigator.userAgent);
+const runsAsApp = () => standalone.matches || navigator.standalone === true;
 const rotate = byId("rotate");
 const touch = window.matchMedia("(pointer: coarse)");
 const portrait = window.matchMedia("(orientation: portrait)");
@@ -79,7 +83,8 @@ function panel(next, title, message, label, action) {
   primary.textContent = label;
   primaryAction = action;
   home.hidden = next === "title";
-  install.hidden = next !== "title";
+  install.hidden = next !== "title" || runsAsApp();
+  rotateInstall.hidden = runsAsApp();
   fullscreen.hidden = next !== "title";
   guide.hidden = next !== "title";
   setScreen(next);
@@ -241,13 +246,63 @@ fullscreen.addEventListener('click', async () => {
     alert('无法进入全屏。可使用“安装”将游戏添加到主屏幕，再从主屏幕打开。');
   }
 });
-window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; });
-window.addEventListener('appinstalled', () => { installPrompt = null; install.textContent = '已安装'; rotateInstall.textContent = '已安装'; });
+function showInstallStatus(message) {
+  for (const id of ['install-status', 'rotate-install-status']) {
+    const status = byId(id);
+    status.textContent = message;
+    status.hidden = !message;
+  }
+}
+
+function confirmInstallRequest() {
+  installPrompt = null;
+  installRequested = true;
+  install.textContent = rotateInstall.textContent = '安装帮助';
+  showInstallStatus(isAndroid
+    ? '已确认安装，请等待 Chrome 处理。在手机主屏幕上滑，搜索“逃离办公室”。找到图标后，长按并选择“添加到主屏幕”。若找不到，回到 Chrome 菜单检查安装选项。'
+    : '安装请求已提交，请在系统的应用列表里查找“逃离办公室”。');
+}
+
+function showInstallHelp() {
+  if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    showInstallStatus('请用 Safari 打开，点击分享，再选择“添加到主屏幕”。');
+    return;
+  }
+  showInstallStatus(isAndroid
+    ? '请打开 Chrome 右上角的 ⋮ 菜单，选择“安装应用”或“安装并创建快捷方式”。如果已经安装，请在手机的应用列表里搜索“逃离办公室”。'
+    : '请打开浏览器菜单，选择“安装应用”或“添加到主屏幕”。');
+}
+
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  installPrompt = event;
+  installRequested = false;
+  install.textContent = rotateInstall.textContent = '安装';
+});
+window.addEventListener('appinstalled', confirmInstallRequest);
+
 async function installGame() {
-  if (installPrompt) { const prompt = installPrompt; installPrompt = null; await prompt.prompt(); await prompt.userChoice; }
-  else if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) alert('游戏已安装到主屏幕。');
-  else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) alert('请在 Safari 中点击分享按钮，再选择“添加到主屏幕”。');
-  else alert('请打开浏览器菜单，选择“安装应用”或“添加到主屏幕”。如未看到选项，请通过 HTTPS 游戏网址打开并稍后重试。');
+  if (!installPrompt) {
+    showInstallHelp();
+    return;
+  }
+
+  const prompt = installPrompt;
+  installPrompt = null;
+  install.disabled = rotateInstall.disabled = true;
+  try {
+    await prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    if (outcome === 'accepted') {
+      if (!installRequested) confirmInstallRequest();
+    } else {
+      showInstallStatus('已取消安装。需要时可以从浏览器菜单再次安装。');
+    }
+  } catch {
+    showInstallHelp();
+  } finally {
+    install.disabled = rotateInstall.disabled = false;
+  }
 }
 install.addEventListener('click', installGame);
 rotateInstall.addEventListener('click', installGame);

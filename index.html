@@ -51,12 +51,19 @@
           <button class="secondary" id="install" type="button">安装</button>
           <button class="secondary" id="home" type="button" hidden>回到主页</button>
         </div>
+        <p id="install-status" class="install-status" role="status" hidden></p>
         <p class="guide" id="guide">方向键移动 · 空格跳跃 · J 开火</p>
       </div>
     </section>
 
     <section class="rotate" id="rotate" aria-label="请横屏游玩" hidden>
-      <div><span aria-hidden="true">↻</span><h2>请横屏游玩</h2><p>旋转手机后继续。</p><button class="secondary rotate-install" id="rotate-install" type="button">安装</button></div>
+      <div>
+        <span aria-hidden="true">↻</span>
+        <h2>请横屏游玩</h2>
+        <p>旋转手机后继续。</p>
+        <button class="secondary rotate-install" id="rotate-install" type="button">安装</button>
+        <p id="rotate-install-status" class="install-status" role="status" hidden></p>
+      </div>
     </section>
   </main>
   <script type="module" src="./src/main.mjs"></script>
