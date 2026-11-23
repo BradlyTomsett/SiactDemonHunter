@@ -34,7 +34,7 @@ export const ENEMIES = {
 export const BOSS = {
   health: 60, width: 58, height: 48, label: '6狗',
   trigger: 340, arenaLeft: 320, arenaRight: 960, spawnX: 690, ground: 286,
-  intro: 1.5, warning: 1, dashSpeed: 250, dashDuration: 1.1,
+  intro: 3.0, warning: 1, dashSpeed: 250, dashDuration: 1.1,
   waveSpeed: 175, recovery: 1.1, damage: 1,
 };
 
@@ -72,8 +72,8 @@ const cp = (c, x) => c.checkpoints.push({ x, y: GROUND });
 const hint = (c, x, text) => c.hints.push({ x, text });
 const decorate = (c, x, y, kind) => c.decoration.push({ x, y, kind });
 
-// ── 1/6 键盘区：教学，平坦 + 一个断口 + 首个陷阱 ────────────────────────────
-const ch1 = createChapter('ch1', '第一关 · 1/6 键盘区', 2300, '从键盘旁出发');
+// ── 1/9 键盘区：教学，平坦 + 一个断口 + 首个陷阱 ────────────────────────────
+const ch1 = createChapter('ch1', '第一关 · 1/9 键盘区', 2300, '从键盘旁出发');
 ch1.spawn = { x: 88, y: 262 };
 desk(ch1, 0, 442);
 keyboard(ch1, 48, 262, 166, 24);
@@ -101,8 +101,8 @@ hint(ch1, 700, '前方有巡逻怪，按住开火可以连发');
 hint(ch1, 1126, '高处的平台能省一段路');
 hint(ch1, 1520, '红色区域会伤人，跳过去');
 
-// ── 2/6 书堆迷宫：纵向爬升 + 射击怪 ────────────────────────────────────────
-const ch2 = createChapter('ch2', '第一关 · 2/6 书堆迷宫', 3300, '堆叠的文件与书本');
+// ── 2/9 书堆迷宫：纵向爬升 + 射击怪 ────────────────────────────────────────
+const ch2 = createChapter('ch2', '第一关 · 2/9 书堆迷宫', 3300, '堆叠的文件与书本');
 desk(ch2, 0, 910);
 books(ch2, 320, 250, 56, 36);
 books(ch2, 376, 214, 56, 36);
@@ -142,8 +142,8 @@ hint(ch2, 1500, '爬得越高，弹药越强');
 hint(ch2, 2100, '前方是 6 狗，经过旗帜后准备战斗');
 hint(ch2, 2600, '击败 6 狗才能离开，小心从天上掉落的东西');
 
-// ── 3/6 线缆区：放电陷阱 + 飞怪 + 断崖 ────────────────────────────────────
-const ch3 = createChapter('ch3', '第一关 · 3/6 显示器线缆区', 2700, '缠绕的线与漏电');
+// ── 3/9 线缆区：放电陷阱 + 飞怪 + 断崖 ────────────────────────────────────
+const ch3 = createChapter('ch3', '第一关 · 3/9 显示器线缆区', 2700, '缠绕的线与漏电');
 desk(ch3, 0, 290);
 desk(ch3, 390, 390);
 desk(ch3, 880, 430);
@@ -179,8 +179,8 @@ hint(ch3, 1400, '检查点每走一段就有一个');
 hint(ch3, 1900, '离显示器越近，线越乱');
 hint(ch3, 2300, '前方就是桌缝');
 
-// ── 4/6 咖啡区：湿滑地面 + 混合敌人 ──────────────────────────────────────
-const ch4 = createChapter('ch4', '第一关 · 4/6 咖啡渍区', 2800, '泼洒的咖啡与湿滑的桌面');
+// ── 4/9 咖啡区：湿滑地面 + 混合敌人 ──────────────────────────────────────
+const ch4 = createChapter('ch4', '第一关 · 4/9 咖啡渍区', 2800, '泼洒的咖啡与湿滑的桌面');
 desk(ch4, 0, 350);
 desk(ch4, 450, 710);
 desk(ch4, 1260, 430);
@@ -220,8 +220,8 @@ hint(ch4, 1250, '两处咖啡渍之间是安全区');
 hint(ch4, 1800, '飞怪会沿着咖啡的味道俯冲');
 hint(ch4, 2300, '最后一段了，检查点很密');
 
-// ── 5/6 抽屉军械库：高台攀爬 + 密集战斗 ──────────────────────────────────
-const ch5 = createChapter('ch5', '第一关 · 5/6 抽屉军械库', 2600, '抽屉里的武器与硬仗');
+// ── 5/9 抽屉军械库：高台攀爬 + 密集战斗 ──────────────────────────────────
+const ch5 = createChapter('ch5', '第一关 · 5/9 抽屉军械库', 2600, '抽屉里的武器与硬仗');
 desk(ch5, 0, 330);
 desk(ch5, 430, 300);
 desk(ch5, 800, 310);
@@ -258,8 +258,8 @@ hint(ch5, 1200, '穿过抽屉往上走，能绕开地面火力');
 hint(ch5, 1700, '弹药有限，用完会自动换回普通枪');
 hint(ch5, 2200, '打完这一批就是桌缝了');
 
-// ── 6/6 桌缝终局：Boss 竞技场 ────────────────────────────────────────────
-const ch6 = createChapter('ch6', '第一关 · 6/6 桌缝终局', 1800, '桌缝尽头的守卫');
+// ── 9/9 桌缝终局：Boss 竞技场 ────────────────────────────────────────────
+const ch6 = createChapter('ch6', '第一关 · 6/9 桌缝终局', 1800, '桌缝尽头的守卫');
 desk(ch6, 0, 240);
 desk(ch6, 300, 1500);
 decorate(ch6, 900, 286, 'monitor');
@@ -273,4 +273,32 @@ cp(ch6, 210);
 hint(ch6, 0, '把最后一发手榴弹留在这里');
 hint(ch6, 280, '它冲过来时跳起来躲开，落地的震波要跳过');
 
-export const LEVELS = [ch1, ch2, ch3, ch4, ch5, ch6];
+// 新增三个可通行场景：地面、显示器顶部与打印机。
+const floor = createChapter('floor', '第一关 · 6/9 办公室地面', 2100, '穿越工位与绿植');
+for (const [x,w] of [[0,620],[690,550],[1310,790]]) floor.platforms.push({ x, y: GROUND, w, h: 22, kind: 'floor' });
+crate(floor, 350, 256, 52); crate(floor, 960, 256, 50);
+patrol(floor, 820, 740, 900); gunner(floor, 1650); flyer(floor, 1500, 205, 1400, 1620);
+hazard(floor, 1100, 60, GROUND - 14, 'cable');
+health(floor, 580, 270); grenades(floor, 1370, 270); weapon(floor, 1820, 270, 'rapid');
+cp(floor, 150); cp(floor, 750); cp(floor, 1350); cp(floor, 1850);
+hint(floor, 0, '来到办公室地面，越过桌腿和线缆'); hint(floor, 1100, '警示条纹的区域会造成伤害');
+
+const monitor = createChapter('monitor', '第一关 · 7/9 显示器顶部', 1900, '攀过屏幕与线缆');
+for (const [x,w] of [[0,520],[600,540],[1220,680]]) monitor.platforms.push({ x, y: GROUND, w, h: 22, kind: 'monitorTop' });
+crate(monitor, 350, 256, 50); shelf(monitor, 800, 225, 100); crate(monitor, 1470, 256, 48);
+flyer(monitor, 720, 210, 640, 950); patrol(monitor, 1510, 1420, 1660);
+hazard(monitor, 1030, 55, GROUND - 14, 'cable');
+health(monitor, 640, 270); weapon(monitor, 1250, 270, 'pierce');
+cp(monitor, 120); cp(monitor, 640); cp(monitor, 1260); cp(monitor, 1680);
+hint(monitor, 0, '沿显示器顶部前进，小心屏幕间的空隙');
+
+const printer = createChapter('printer', '第一关 · 8/9 打印机', 1900, '穿越纸张与设备');
+for (const [x,w] of [[0,610],[690,530],[1300,600]]) printer.platforms.push({ x, y: GROUND, w, h: 22, kind: 'printerTop' });
+books(printer, 380, 258, 60, 28); crate(printer, 900, 256, 48); shelf(printer, 1500, 220, 100);
+gunner(printer, 850); patrol(printer, 1650, 1530, 1770); flyer(printer, 1100, 200, 1000, 1200);
+hazard(printer, 1450, 55, GROUND - 14, 'crumb');
+health(printer, 700, 270); grenades(printer, 1330, 270); weapon(printer, 1800, 270, 'heavy');
+cp(printer, 120); cp(printer, 740); cp(printer, 1350); cp(printer, 1740);
+hint(printer, 0, '踏上打印机顶盖，越过纸张和出纸口');
+
+export const LEVELS = [ch1, ch2, ch3, ch4, ch5, floor, monitor, printer, ch6];

@@ -311,7 +311,7 @@ function stepBoss(game, dt) {
   }
   boss.flash = Math.max(0, boss.flash - dt);
   if (boss.health <= 0 && boss.state !== 'dying') {
-    boss.state = 'dying'; boss.timer = 0.8; game.waves = [];
+    boss.state = 'dying'; boss.timer = 0.8; boss.y = cfg.ground - boss.h; game.waves = [];
   }
   // 血量越低节奏越快：三阶段
   const ratio = boss.health / boss.maxHealth;
@@ -320,19 +320,30 @@ function stepBoss(game, dt) {
   boss.timer -= dt;
   if (boss.state === 'intro') boss.x = approach(boss.x, cfg.spawnX, 85 * dt);
   if (boss.state === 'dash') boss.x = clamp(boss.x + boss.direction * cfg.dashSpeed * rage * dt, cfg.arenaLeft, cfg.arenaRight - boss.w);
+  if (boss.state === 'leap') {
+    const progress = 1 - Math.max(0, boss.timer) / 1.1;
+    boss.x = clamp(boss.x + boss.direction * 145 * dt, cfg.arenaLeft, cfg.arenaRight - boss.w);
+    boss.y = cfg.ground - boss.h - Math.sin(progress * Math.PI) * 78;
+  }
   if (boss.timer <= 0) {
     if (boss.state === 'dying') { boss.state = 'defeated'; return false; }
     if (boss.state === 'intro' || boss.state === 'recovery') {
       boss.direction = game.player.x < boss.x ? -1 : 1;
-      boss.state = boss.attack === 'dash' ? 'warnDash' : 'warnWave'; boss.timer = warning;
+      boss.state = boss.attack === 'dash' ? 'warnDash' : boss.attack === 'leap' ? 'warnLeap' : 'warnWave'; boss.timer = warning;
     } else if (boss.state === 'warnDash') {
       boss.state = 'dash'; boss.timer = cfg.dashDuration;
+    } else if (boss.state === 'warnLeap') {
+      boss.state = 'leap'; boss.timer = 1.1;
+    } else if (boss.state === 'leap') {
+      boss.y = cfg.ground - boss.h;
+      game.waves.push({ x: boss.x, y: cfg.ground - 20, w: 12, h: 20, direction: -1 }, { x: boss.x + boss.w, y: cfg.ground - 20, w: 12, h: 20, direction: 1 });
+      boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'dash';
     } else if (boss.state === 'warnWave') {
       game.waves.push({
         x: clamp(boss.direction < 0 ? boss.x - 12 : boss.x + boss.w, cfg.arenaLeft + 2, cfg.arenaRight - 14),
         y: cfg.ground - 20, w: 12, h: 20, direction: boss.direction,
       });
-      boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'dash';
+      boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'leap';
     } else if (boss.state === 'dash') {
       boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'wave';
     }

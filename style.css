@@ -208,3 +208,14 @@ h1 span { color: var(--amber); }
 .primary, .secondary, .pause { border-radius:999px; }
 
 .rotate-install { margin-top: 20px; min-width: 120px; }
+
+/* 鲜明的办公室配色与半透明游戏界面 */
+:root { --amber: #ffad3b; }
+.overlay { background: linear-gradient(105deg,#14242af2 0%,#253238dd 48%,#26323844 100%); }
+.panel { background: linear-gradient(145deg,#243439f5,#16262df2); border:1px solid #ffffff66; border-top:4px solid #f0443c; box-shadow:0 18px 60px #0008; }
+.chapter { color:#ffbf54; letter-spacing:.12em; }
+h1 span { color:#ffb231; text-shadow:0 2px 20px #ff8c3055; }
+.hud-left { background:#1b2a30dc; border:1px solid #ffffff77; border-left:4px solid #f0443c; backdrop-filter:blur(10px); }
+.primary { background:linear-gradient(120deg,#ffcd55,#ff8b27); border:0; box-shadow:0 5px 18px #ff902b66; }
+.secondary,.pause { background:#30464cd9; border:1px solid #d7e8df99; }
+.hint { border-radius:9px; border-left:3px solid #ffb23b; }
