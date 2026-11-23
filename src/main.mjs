@@ -22,7 +22,8 @@ const portrait = window.matchMedia("(orientation: portrait)");
 const step = 1 / 120;
 
 let levelIndex = 0;
-let game = createGame(LEVELS[levelIndex]);
+let carryLives = PLAYER.lives;
+let game = null;
 let screen = "title";
 let rotationBlocked = false;
 let accumulator = 0;
@@ -40,6 +41,12 @@ for (let i = 0; i < PLAYER.maxHealth; i++) {
   heart.className = "heart";
   heart.setAttribute("aria-hidden", "true");
   health.append(heart);
+}
+
+function timeText(seconds) {
+  const total = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(total / 60);
+  return `${minutes} 分 ${String(total % 60).padStart(2, "0")} 秒`;
 }
 
 function setScreen(next) {
@@ -72,10 +79,26 @@ function panel(next, title, message, label, action) {
   if (!rotationBlocked) primary.focus({ preventScroll: true });
 }
 
+function loadLevel(index, remainingLives) {
+  levelIndex = Math.max(0, Math.min(LEVELS.length - 1, index));
+  carryLives = remainingLives;
+  game = createGame(LEVELS[levelIndex], { lives: remainingLives });
+  previousRespawns = game.respawns;
+  previousHealth = -1;
+  previousLives = -1;
+  byId("level-name").textContent = game.level.name;
+  updateHud();
+}
+
 function showTitle() {
-  levelIndex = 0;
-  game = createGame(LEVELS[0]);
-  panel("title", "SiactDemonHunter", "你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。", "开始第一关", start);
+  loadLevel(0, PLAYER.lives);
+  panel(
+    "title",
+    "SiactDemonHunter",
+    "你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。",
+    "开始第一关",
+    start,
+  );
   const accent = document.createElement("span");
   accent.textContent = "Demon";
   byId("menu-title").replaceChildren("Siact", accent, "Hunter");
@@ -83,10 +106,7 @@ function showTitle() {
 
 function start() {
   if (rotationBlocked) return;
-  game = createGame(LEVELS[levelIndex]);
-  previousRespawns = game.respawns;
-  previousHealth = -1;
-  previousLives = -1;
+  loadLevel(levelIndex, carryLives);
   byId("level-name").textContent = game.level.name;
   updateHud();
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
@@ -127,7 +147,7 @@ function updateDevice() {
 function showNotice(message) {
   notice.textContent = message;
   notice.hidden = false;
-  noticeUntil = performance.now() + 2200;
+  noticeUntil = performance.now() + 2600;
 }
 
 function updateHud() {
@@ -141,7 +161,8 @@ function updateHud() {
   }
   if (game.respawns !== previousRespawns) {
     previousRespawns = game.respawns;
-    showNotice(`${game.respawnReason}还剩 ${game.lives + 1} 条命`);
+    const stage = game.checkpoint >= 0 ? `第 ${game.checkpoint + 1} 处检查点` : "本段起点";
+    showNotice(`${game.respawnReason}已回到${stage}，还剩 ${game.lives + 1} 条命`);
   }
   if (game.lives !== previousLives) {
     const totalLives = game.status === 'lost' ? 0 : game.lives + 1;
@@ -161,14 +182,42 @@ function updateHud() {
 
 function finish() {
   if (game.status === "lost") {
-    panel("lost", "行动失败", game.reason, "再来一局", start);
-  } else if (levelIndex < LEVELS.length - 1) {
-    panel("cleared", "本关通过", "已抵达出口。", "下一关", () => {
-      levelIndex++;
-      start();
-    });
+    panel(
+      "lost",
+      "行动失败",
+      `${game.reason}从本段开头重新开始，命数恢复。`,
+      "重试本段",
+      () => {
+        loadLevel(levelIndex, PLAYER.lives);
+        start();
+      },
+    );
+    return;
+  }
+  const used = timeText(game.elapsed);
+  if (levelIndex < LEVELS.length - 1) {
+    const nextLives = game.lives;
+    panel(
+      "cleared",
+      "本段通过",
+      `已抵达出口。用时 ${used}，剩余命数 ${nextLives + 1} 条。`,
+      "下一段",
+      () => {
+        loadLevel(levelIndex + 1, nextLives);
+        start();
+      },
+    );
   } else {
-    panel("cleared", "本关通过", "你越过了桌缝，顺利抵达出口。", "再玩一局", start);
+    panel(
+      "cleared",
+      "第一关通关",
+      `你越过了桌缝。总用时 ${used}，剩余命数 ${game.lives + 1} 条。`,
+      "再玩一局",
+      () => {
+        loadLevel(0, PLAYER.lives);
+        start();
+      },
+    );
   }
 }
 
@@ -204,6 +253,5 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-updateDevice();
+showTitle();
 requestAnimationFrame(frame);
-
