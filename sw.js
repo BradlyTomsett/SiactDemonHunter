@@ -1,4 +1,4 @@
-const CACHE = 'sdh-v1';
+const CACHE = 'sdh-v2';
 const ASSETS = ['./', './index.html', './style.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './src/main.mjs', './src/game.mjs', './src/input.mjs', './src/levels.mjs', './src/render.mjs'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

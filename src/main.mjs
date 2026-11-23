@@ -16,6 +16,8 @@ const overlay = byId("overlay");
 const primary = byId("primary");
 const guide = byId("guide");
 const home = byId("home");
+const install = byId("install");
+let installPrompt = null;
 const rotate = byId("rotate");
 const touch = window.matchMedia("(pointer: coarse)");
 const portrait = window.matchMedia("(orientation: portrait)");
@@ -75,6 +77,7 @@ function panel(next, title, message, label, action) {
   primary.textContent = label;
   primaryAction = action;
   home.hidden = next === "title";
+  install.hidden = next !== "title";
   guide.hidden = next !== "title";
   setScreen(next);
   if (!rotationBlocked) primary.focus({ preventScroll: true });
@@ -155,7 +158,7 @@ function showNotice(message) {
 function updateHud() {
   const hp = game.player.health;
   const weapon = WEAPONS[game.player.weapon];
-  byId('equipment').textContent = `${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  手榴弹 ${game.player.grenades}/6`;
+  byId('equipment').textContent = `${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  炸弹 ${game.player.grenades}/6`;
   if (hp !== previousHealth) {
     health.setAttribute("aria-label", `生命 ${hp} / ${PLAYER.maxHealth}`);
     for (const [i, heart] of [...health.children].entries()) heart.classList.toggle("empty", i >= hp);
@@ -225,6 +228,14 @@ function finish() {
   }
 }
 
+window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt = event; });
+window.addEventListener('appinstalled', () => { installPrompt = null; install.textContent = '已安装'; });
+install.addEventListener('click', async () => {
+  if (installPrompt) { const prompt = installPrompt; installPrompt = null; await prompt.prompt(); await prompt.userChoice; }
+  else if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) alert('游戏已安装到主屏幕。');
+  else if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) alert('请在 Safari 中点击分享按钮，再选择“添加到主屏幕”。');
+  else alert('请打开浏览器菜单，选择“安装应用”或“添加到主屏幕”。如未看到选项，请通过 HTTPS 游戏网址打开并稍后重试。');
+});
 primary.addEventListener("click", () => primaryAction());
 home.addEventListener("click", showTitle);
 pauseButton.addEventListener("click", togglePause);

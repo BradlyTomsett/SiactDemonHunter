@@ -48,12 +48,14 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   game.enemyShots = [];
   game.grenades = [];
   game.waves = [];
+  game.droppings = [];
+  game.dropTimer = 2.5;
   game.sparks = [];
   game.checkpoint = checkpointIndex;
   game.boss = level.boss ? {
     x: level.boss.spawnX, y: level.boss.ground - level.boss.height,
     w: level.boss.width, h: level.boss.height,
-    health: level.boss.health, maxHealth: level.boss.health,
+    health: level.boss.health, maxHealth: level.boss.health, speech: 0,
     state: 'waiting', timer: 0, attack: 'dash', direction: -1, flash: 0,
   } : null;
   game.camera = clamp(spawnX - VIEW.width * 0.38, 0, Math.max(0, level.width - VIEW.width));
@@ -183,6 +185,8 @@ function stepShots(game, fire, dt) {
     bullet.y += dy;
     bullet.life -= dt;
     if (game.level.platforms.some(solid => !solid.oneway && overlaps(sweep, solid))) return false;
+    const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
+    if (dropping) { dropping.destroyed = true; sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
     const targets = [...game.enemies, ...bossTargets];
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < VIEW.height;
@@ -345,6 +349,31 @@ function stepBoss(game, dt) {
   return false;
 }
 
+function stepDroppings(game, dt) {
+  const boss = game.boss;
+  if (!boss || ['waiting', 'dying', 'defeated'].includes(boss.state)) { game.droppings = []; return false; }
+  boss.speech = Math.max(0, boss.speech - dt);
+  game.dropTimer -= dt;
+  if (game.dropTimer <= 0) {
+    const cfg = game.level.boss;
+    const target = Math.random() < 0.5 ? game.player.x : boss.x;
+    const x = clamp(target + (Math.random() - 0.5) * 100, cfg.arenaLeft, cfg.arenaRight - 18);
+    game.droppings.push({ x, y: -20, w: 18, h: 18, speed: 55 + Math.random() * 20 });
+    game.dropTimer = 2.6 + Math.random() * 1.8;
+  }
+  const respawns = game.respawns;
+  const remaining = game.droppings.filter(item => {
+    if (item.destroyed || game.respawns !== respawns || game.status !== 'playing') return false;
+    item.y += item.speed * dt;
+    if (overlaps(item, boss)) { boss.health = Math.min(boss.maxHealth, boss.health + 1); boss.speech = 2.4; return false; }
+    if (overlaps(item, game.player)) { damagePlayer(game, item, 1); return false; }
+    return item.y < game.level.boss.ground - item.h;
+  });
+  if (game.respawns !== respawns || game.status !== 'playing') return true;
+  game.droppings = remaining;
+  return false;
+}
+
 function damagePlayer(game, source, amount) {
   const p = game.player;
   if (p.invincible > 0) return false;
@@ -384,6 +413,7 @@ export function stepGame(game, input, dt) {
   const interrupted = stepBoss(game, dt);
   if (game.respawns !== respawns) { game.waves = []; return; }
   if (interrupted || game.status !== 'playing') return;
+  if (stepDroppings(game, dt)) return;
 
   for (const enemy of game.enemies) {
     if (enemy.health && overlaps(p, enemy) && damagePlayer(game, enemy, ENEMIES[enemy.type].damage)) return;

@@ -14,7 +14,7 @@
 </head>
 <body>
   <main class="game" aria-label="SiactDemonHunter">
-    <canvas id="world" width="640" height="360" aria-label="办公室桌面关卡"></canvas>
+    <canvas id="world" width="1280" height="720" aria-label="办公室桌面关卡"></canvas>
     <div class="vignette"></div>
 
     <header class="hud" id="hud" hidden>
@@ -35,8 +35,8 @@
       </div>
       <div class="control-group attacks" data-controls>
         <button class="pad" type="button" data-action="jump"><span>↑</span>跳跃</button>
-        <button class="pad" type="button" data-action="grenade"><span>●</span>手榴弹</button>
-        <button class="pad fire" type="button" data-action="fire"><span>✦</span>开火</button>
+        <button class="pad" type="button" data-action="grenade"><span>●</span>炸弹</button>
+        <button class="pad fire" type="button" data-action="fire"><span>✦</span>射击</button>
       </div>
     </div>
 
@@ -47,6 +47,7 @@
         <p id="menu-message">你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。</p>
         <div class="menu-actions">
           <button class="primary" id="primary" type="button">开始第一关</button>
+          <button class="secondary" id="install" type="button">安装</button>
           <button class="secondary" id="home" type="button" hidden>回到主页</button>
         </div>
         <p class="guide" id="guide">方向键移动 · 空格跳跃 · J 开火</p>
