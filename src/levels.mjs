@@ -2,7 +2,7 @@ export const VIEW = { width: 640, height: 360 };
 
 export const PLAYER = {
   width: 17, height: 27, speed: 188, acceleration: 1650,
-  gravity: 1080, jumpSpeed: 400, maxFallSpeed: 560,
+  gravity: 1080, jumpSpeed: 440, maxFallSpeed: 560,
   coyoteTime: 0.10, jumpBuffer: 0.13,
   maxHealth: 5, lives: 3, invincibleTime: 1.15, respawnInvincible: 1.8,
   knockbackSpeed: 145, knockbackTime: 0.16,
