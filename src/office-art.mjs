@@ -3,12 +3,12 @@ import { GROUND, VIEW } from './levels.mjs';
 const { width: W, height: H } = VIEW;
 const BASES = new Set(['desk', 'floor', 'monitorTop', 'printerTop']);
 const MATERIALS = {
-  desk: ['#ffe4ad', '#dea667', '#a8683e'],
+  desk: ['#ffd28a', '#e6a14e', '#ad5d2a'],
   floor: ['#f7eee0', '#cdbdb0', '#928789'],
   monitorTop: ['#747f89', '#2e3847', '#131923'],
   printerTop: ['#faf9ef', '#c5cdd1', '#667781'],
   keyboard: ['#555c68', '#292f3c', '#171921'],
-  books: ['#a34e40', '#efe0bd', '#8d4439'],
+  books: ['#ba4835', '#eddbb1', '#963e2f'],
   stand: ['#aeb9c1', '#677883', '#394751'],
   drawer: ['#dabb8c', '#a67950', '#62412e'],
   crate: ['#e3bc83', '#bc8952', '#805730'],
@@ -32,7 +32,7 @@ export function createOfficeArt(ctx, { round, oval, line }) {
   }
 
   function background(camera, level) {
-    fill(0, 0, W, H, gradient(0, H, '#f5fffd', '#d0e8e4', '#a6cac6', '#7aa8ad'));
+    fill(0, 0, W, H, gradient(0, H, '#edfef8', '#c0e8dd', '#88cebd', '#54a9ab'));
     const ceiling = -(camera * .12 % 180);
     for (let x = ceiling - 180; x < W + 180; x += 180) {
       line(x, 0, x + 45, 70, '#b4bec2', 1);
@@ -45,11 +45,11 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     for (let x = partition - 260; x < W; x += 260) {
       fill(x + 12, 77, 46, 103, '#74676b');
       fill(x + 15, 81, 40, 99, '#b49484');
-      fill(x + 66, 79, 182, 63, gradient(79, 63, '#a5c6bf', '#c4dfd8'));
+      fill(x + 66, 79, 182, 63, gradient(79, 63, '#86c4b5', '#a8ddd1'));
       for (let y = 86; y < 142; y += 7) fill(x + 69, y, 176, 2, '#d0dad580');
       fill(x, 138, 256, 46, '#aebbbdcc');
       for (let y = 145; y < 180; y += 7) fill(x, y, 256, 2, '#e2e9e0b0');
-      fill(x, 184, 256, 15, '#d96f65');
+      fill(x, 184, 256, 15, '#e35743');
       fill(x, 135, 3, 65, '#d9ded7');
 
       if (level.id === 'floor') {
@@ -59,11 +59,11 @@ export function createOfficeArt(ctx, { round, oval, line }) {
       }
       round(x + 181, 160, 19, 24, 4, '#c2c7bc');
       for (const [dx, dy, rx, ry] of [[-8, -10, 10, 5], [9, -16, 12, 6], [-3, -22, 7, 11], [9, -5, 9, 4]]) {
-        oval(x + 191 + dx, 160 + dy, rx, ry, '#55916f');
+        oval(x + 191 + dx, 160 + dy, rx, ry, '#30865a');
       }
     }
     // The part behind the jumping path has no sharp horizontal features.
-    fill(0, 164, W, H - 164, gradient(164, 135, '#dff3e600', '#d3e9e2ec', '#b2d3d0'));
+    fill(0, 164, W, H - 164, gradient(164, 135, '#c9f0e400', '#b9e9ddec', '#9ad3ca'));
   }
 
   function gaps(level, camera) {

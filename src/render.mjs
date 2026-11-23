@@ -66,7 +66,33 @@ export function createRenderer(canvas) {
     ctx.fillText(text,cx,y+h/2+1);
     ctx.textBaseline='alphabetic';
   }
-  function dog(b, t){
+  function furMarks(coat, head) {
+    if (!coat || coat.pattern === 'solid') return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(head ? 0 : -2, head ? 14 : 32, head ? 16.5 : 22, head ? 14 : 13, 0, 0, Math.PI * 2);
+    ctx.clip();
+    const y = head ? 14 : 31;
+    if (coat.pattern === 'spots') {
+      for (const [x, offset, rx, ry] of [[-14,-5,4,4], [-5,5,3,3], [13,-3,5,4], [5,-9,3,3], [13,8,3,2]]) {
+        oval(x, y + offset, rx, ry, coat.mark);
+      }
+    } else if (coat.pattern === 'brindle') {
+      for (const x of [-17, -9, 1, 12, 21]) line(x, y - 11, x - 5, y + 2, coat.mark, 3.4);
+    } else if (coat.pattern === 'patch') {
+      oval(-13, y - 5, 11, 9, coat.mark);
+      oval(head ? 15 : 10, y + 9, 9, 6, coat.mark);
+    } else if (coat.pattern === 'points') {
+      oval(-8, y - 7, 4.5, 2.4, coat.mark);
+      oval(8, y - 7, 4.5, 2.4, coat.mark);
+      if (!head) oval(6, y + 5, 11, 7, coat.mark);
+    } else {
+      oval(head ? 0 : -5, y + 8, head ? 12 : 17, 9, coat.mark);
+    }
+    ctx.restore();
+  }
+
+  function dog(b, t, camera){
     if (!b || b.state === 'waiting' || b.state === 'defeated' || (!b.health && b.state !== 'dying')) return;
     const puppy = Boolean(b.type);
     const intro = b.state === 'intro';
@@ -76,7 +102,7 @@ export function createRenderer(canvas) {
     ctx.save();
     ctx.translate(b.x + b.w / 2, b.y + bob);
     ctx.scale(b.direction * b.w / 64, b.h / 49);
-    if (b.state === 'dying') ctx.globalAlpha = Math.max(0, b.timer / .8);
+    if (b.state === 'dying') ctx.globalAlpha = Math.min(1, Math.max(0, b.timer / .55));
 
     if (b.type === 'flyer') {
       const spread = Math.sin(t * 24) * 5;
@@ -84,17 +110,19 @@ export function createRenderer(canvas) {
       oval(17, 27 - spread, 11, 5, '#78f3f2');
     }
     const coat = ctx.createLinearGradient(0, 4, 0, 46);
-    coat.addColorStop(0, b.flash ? '#fff4dc' : '#e3a566');
-    coat.addColorStop(1, '#884a32');
+    coat.addColorStop(0, b.flash ? '#fff4dc' : b.coat?.light ?? '#e3a566');
+    coat.addColorStop(1, b.coat?.dark ?? '#884a32');
+    const ear = b.coat?.dark ?? '#713e2d';
     const tail = -12 + Math.sin(t * (intro ? 14 : 7)) * 4;
-    line(-17, 33, -25, 32 + tail * .35, '#75412d', 5);
-    line(-25, 32 + tail * .35, -28, 33 + tail * .62, '#c18154', 4);
+    line(-17, 33, -25, 32 + tail * .35, ear, 5);
+    line(-25, 32 + tail * .35, -28, 33 + tail * .62, b.coat?.light ?? '#c18154', 4);
     oval(-2, 32, 22, 13, coat);
-    oval(6, 34, 12, 12, '#edc399');
+    furMarks(b.coat, false);
+    if (!b.coat) oval(6, 34, 12, 12, '#edc399');
     if (b.type === 'gunner') line(-7, 30, 15, 31, '#226ec9', 4);
     for (const [x, stride] of [[-13, gait], [13, -gait]]) {
-      line(x, 35, x + stride, 45, '#9b5d40', 7);
-      oval(x + stride + 1, 46, 4.7, 2.5, '#e2a77e');
+      line(x, 35, x + stride, 45, b.coat?.dark ?? '#9b5d40', 7);
+      oval(x + stride + 1, 46, 4.7, 2.5, b.coat?.light ?? '#e2a77e');
     }
 
     ctx.save();
@@ -102,18 +130,23 @@ export function createRenderer(canvas) {
     if (intro) ctx.rotate(Math.sin(t * 4) * .14);
     else if (dashing) ctx.rotate(.13);
     // Pendant ears remain visible behind the cheek-mounted transducers.
-    oval(-16, 15, 7, 15, '#713e2d');
-    oval(16, 15, 7, 15, '#713e2d');
+    oval(-16, 15, 7, 15, ear);
+    oval(16, 15, 7, 15, ear);
     oval(-17, 19, 3.5, 9, '#9a5a48');
     oval(16, 19, 3.5, 9, '#9a5a48');
     oval(0, 14, 16.5, 14, coat);
-    oval(0, 12, 4, 7, '#efbf90');
+    furMarks(b.coat, true);
+    if (!b.coat) oval(0, 12, 4, 7, '#efbf90');
+    else {
+      oval(-6, 12, 3.4, 3.6, '#f6e1c7');
+      oval(6, 12, 3.4, 3.6, '#f6e1c7');
+    }
     oval(-6, 12, 2.6, 2.9, '#241b1c');
     oval(6, 12, 2.6, 2.9, '#241b1c');
     oval(-5.5, 11, .8, .8, '#fff1dc');
     oval(6.5, 11, .8, .8, '#fff1dc');
     oval(0, 23, 11, 8, '#f2d0aa');
-    if (b.state === 'warnWave' || b.speech > 0) oval(0, 26, 5, 4, '#502930');
+    if (b.state === 'warnWave' || b.state === 'dying' || b.speech > 0) oval(0, 26, 5, 4, '#502930');
     oval(0, 20, 4.6, 3.4, '#241c20');
     oval(1, 19, 1.6, .8, '#a2938a');
     line(0, 22, 0, 25, '#754d3d', 1);
@@ -144,8 +177,11 @@ export function createRenderer(canvas) {
       oval(0, -3.7, .8, .8, '#fff9df');
     }
     ctx.restore();
-    if (!puppy && b.state==='intro' && b.speech<=0)bubble('看我的橙色耳机！',b.x+b.w/2,b.y-10,'#873000','#fff3d5','#fb9a51');
-    if(b.speech>0)bubble('感谢骡子爹',b.x+b.w/2,b.y-6,'#4a2f1d','#fff7df','#cfae7e');
+    if (puppy) return;
+    const speechX = Math.min(camera + W - 100, Math.max(camera + 100, b.x + b.w / 2));
+    if (b.state === 'dying') bubble('骡子救我！', speechX, b.y - 8, '#9a242b', '#fff7e3', '#f27551');
+    else if (b.speech > 0) bubble('感谢骡子爹', speechX, b.y - 6, '#4a2f1d', '#fff7df', '#cfae7e');
+    else if (intro) bubble('看我的橙色耳机！', speechX, b.y - 10, '#873000', '#fff3d5', '#fb9a51');
   }
   function dropping(d){
     const s=(d.w||18)/18;
@@ -265,17 +301,20 @@ export function createRenderer(canvas) {
     if(!game.level.boss || game.boss?.state==='defeated'){const e=game.level.exit;round(e.x-4,e.y-4,e.w+8,e.h+4,9,'#bbdbc4');round(e.x,e.y,e.w,e.h,7,'#416e68');ctx.fillStyle='#fff7d4';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('出口',e.x+e.w/2,e.y-8);}
     for (const s of game.supplies) {
       if (s.taken || !office.visible(s, game.camera)) continue;
-      const y = s.y + Math.sin(game.elapsed * 5) * 2;
-      const color = s.type === 'grenade' ? '#ffc454' : WEAPONS[s.type]?.color ?? '#64ddb4';
-      round(s.x - 1, y - 1, s.w + 2, s.h + 2, 5, '#27464f');
-      round(s.x, y, s.w, s.h, 4, color);
+      const x = s.x + s.w / 2;
+      const y = s.y + Math.sin(game.elapsed * 5 + s.x * .04) * 1.7;
+      const color = s.type === 'grenade' ? '#ffb831' : WEAPONS[s.type]?.color ?? '#56deb2';
+      oval(x, y + 11, 23, 16, color + '55');
+      round(x - 18, y - 1, 36, 24, 7, '#173e53');
+      round(x - 16, y + 1, 32, 19, 6, color);
+      line(x - 10, y + 3, x + 10, y + 3, '#ffffffa8', 1.1);
       ctx.fillStyle = '#192d45';
-      ctx.font = 'bold 10px sans-serif';
+      ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(({grenade:'雷',spread:'散',pierce:'穿',rapid:'疾',heavy:'重'})[s.type] ?? '+', s.x + 7, y + 10.5);
+      ctx.fillText(({grenade:'炸弹',spread:'散射',pierce:'穿透',rapid:'疾射',heavy:'重击'})[s.type] ?? '补血', x, y + 15);
     }
     for (const e of game.enemies) if (office.visible(e, game.camera)) dog(e, game.elapsed);
-    dog(game.boss,game.elapsed);
+    dog(game.boss, game.elapsed, game.camera);
     for(const d of game.droppings) if(!d.destroyed)dropping(d);
     for(const w of game.waves) headphone(w,game.elapsed);
     for(const s of game.enemyShots) headphone(s,game.elapsed);
@@ -291,7 +330,7 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#5c2525';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(game.level.boss.label, 320, 69.5);
+      ctx.fillText(`${game.level.boss.label} · ${boss.coat.name}`, 320, 69.5);
     }
   };
 }

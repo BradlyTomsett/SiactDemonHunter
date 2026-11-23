@@ -30,7 +30,6 @@ const portrait = window.matchMedia("(orientation: portrait)");
 const step = 1 / 120;
 
 let levelIndex = 0;
-let carryLives = PLAYER.lives;
 let completedTime = 0;
 let game = null;
 let screen = "title";
@@ -90,10 +89,9 @@ function panel(next, title, message, label, action) {
   primary.focus({ preventScroll: true });
 }
 
-function loadLevel(index, remainingLives) {
+function loadLevel(index, remainingLives, carry) {
   levelIndex = Math.max(0, Math.min(LEVELS.length - 1, index));
-  carryLives = remainingLives;
-  game = createGame(LEVELS[levelIndex], { lives: remainingLives });
+  game = createGame(LEVELS[levelIndex], { lives: remainingLives, carry });
   previousRespawns = game.respawns;
   previousHealth = -1;
   previousLives = -1;
@@ -114,9 +112,6 @@ function showTitle() {
 }
 
 function start() {
-  loadLevel(levelIndex, carryLives);
-  byId("level-name").textContent = game.level.name;
-  updateHud();
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   setScreen("playing");
 }
@@ -205,7 +200,7 @@ function finish() {
       "下一段",
       () => {
         completedTime += game.elapsed;
-        loadLevel(levelIndex + 1, nextLives);
+        loadLevel(levelIndex + 1, nextLives, game.player);
         start();
       },
     );
@@ -309,15 +304,27 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+function playDefeatVoice() {
+  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
+  const cry = new SpeechSynthesisUtterance("骡子救我！");
+  cry.lang = "zh-CN";
+  cry.pitch = 1.18;
+  const voice = speechSynthesis.getVoices().find(item => /^zh[-_]CN$/i.test(item.lang));
+  if (voice) cry.voice = voice;
+  speechSynthesis.speak(cry);
+}
+
 function frame(now) {
   const seconds = lastTime === null ? 0 : Math.min(0.06, (now - lastTime) / 1000);
   lastTime = now;
   if (screen === "playing") {
     accumulator += seconds;
+    const priorBossState = game.boss?.state;
     while (accumulator >= step && game.status === "playing") {
       stepGame(game, input.read(), step);
       accumulator -= step;
     }
+    if (priorBossState !== "dying" && game.boss?.state === "dying") playDefeatVoice();
     updateHud();
     if (game.status !== "playing") finish();
   }

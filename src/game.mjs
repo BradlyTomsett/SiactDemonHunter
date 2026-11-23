@@ -11,7 +11,7 @@ export function createGame(level, options = {}) {
     lives: options.lives ?? PLAYER.lives, respawns: 0, respawnReason: "", checkpoint: -1,
     enemies: [], supplies: [], bullets: [], enemyShots: [], sparks: [], grenades: [], waves: [],
   };
-  resetLevel(game, -1);
+  resetLevel(game, -1, options.carry);
   return game;
 }
 
@@ -37,13 +37,15 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     x: spawnX, y: spawnY - PLAYER.height,
     w: PLAYER.width, h: PLAYER.height, vx: 0, vy: 0, facing: 1, aimX: 1, aimY: 0,
     grounded: false, coyote: 0, jumpBuffer: 0, cooldown: 0, flash: 0,
-    health: PLAYER.maxHealth, invincible: 0, knockback: 0,
-    weapon: keep ? keep.weapon : 'basic',
-    ammo: keep ? keep.ammo : Infinity,
-    grenades: keep ? keep.grenades : 2,
+    health: keep?.health ?? PLAYER.maxHealth, invincible: 0, knockback: 0,
+    weapon: keep?.weapon ?? 'basic',
+    ammo: keep?.ammo ?? Infinity,
+    grenades: keep?.grenades ?? 2,
   };
   game.enemies = level.enemies.map(makeEnemy);
-  game.supplies = level.supplies.map(supply => ({ ...supply, w: 14, h: 14, taken: false }));
+  game.supplies = level.supplies.map(supply => ({
+    ...supply, x: supply.x - 4, y: supply.y - 8, w: 22, h: 22, taken: false,
+  }));
   game.bullets = [];
   game.enemyShots = [];
   game.grenades = [];
@@ -56,7 +58,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   game.boss = level.boss ? {
     x: level.boss.spawnX, y: level.boss.ground - level.boss.height,
     w: level.boss.width, h: level.boss.height,
-    health: level.boss.health, maxHealth: level.boss.health, speech: 0,
+    health: level.boss.health, maxHealth: level.boss.health, speech: 0, coat: level.boss.coat,
     state: 'waiting', timer: 0, attack: 'dash', direction: -1, flash: 0,
   } : null;
   game.camera = clamp(spawnX - VIEW.width * 0.38, 0, Math.max(0, level.width - VIEW.width));
@@ -78,15 +80,10 @@ function nearestCheckpoint(game, player) {
 function die(game, reason) {
   if (game.lives > 0) {
     const index = game.checkpoint;
-    const keep = {
-      weapon: game.player.weapon,
-      ammo: game.player.ammo,
-      grenades: game.player.grenades,
-    };
     game.lives -= 1;
     game.respawns += 1;
     game.respawnReason = reason;
-    resetLevel(game, index, keep);
+    resetLevel(game, index);
     game.player.invincible = PLAYER.respawnInvincible;
     return true;
   }
@@ -333,7 +330,10 @@ function stepBoss(game, dt) {
   }
   boss.flash = Math.max(0, boss.flash - dt);
   if (boss.health <= 0 && boss.state !== 'dying') {
-    boss.state = 'dying'; boss.timer = 0.8; boss.y = cfg.ground - boss.h; game.waves = [];
+    boss.state = 'dying';
+    boss.timer = 2.25;
+    boss.y = cfg.ground - boss.h;
+    game.waves = [];
   }
   // 血量越低节奏越快：三阶段
   const ratio = boss.health / boss.maxHealth;
@@ -343,9 +343,9 @@ function stepBoss(game, dt) {
   if (boss.state === 'intro') boss.x = approach(boss.x, cfg.spawnX, 85 * dt);
   if (boss.state === 'dash') boss.x = clamp(boss.x + boss.direction * cfg.dashSpeed * rage * dt, cfg.arenaLeft, cfg.arenaRight - boss.w);
   if (boss.state === 'leap') {
-    const progress = 1 - Math.max(0, boss.timer) / 1.1;
-    boss.x = clamp(boss.x + boss.direction * 145 * dt, cfg.arenaLeft, cfg.arenaRight - boss.w);
-    boss.y = cfg.ground - boss.h - Math.sin(progress * Math.PI) * 78;
+    const progress = 1 - Math.max(0, boss.timer) / cfg.leapDuration;
+    boss.x = clamp(boss.x + boss.direction * cfg.leapSpeed * dt, cfg.arenaLeft, cfg.arenaRight - boss.w);
+    boss.y = cfg.ground - boss.h - Math.sin(progress * Math.PI) * cfg.leapHeight;
   }
   if (boss.timer <= 0) {
     if (boss.state === 'dying') { boss.state = 'defeated'; return false; }
@@ -355,7 +355,7 @@ function stepBoss(game, dt) {
     } else if (boss.state === 'warnDash') {
       boss.state = 'dash'; boss.timer = cfg.dashDuration;
     } else if (boss.state === 'warnLeap') {
-      boss.state = 'leap'; boss.timer = 1.1;
+      boss.state = 'leap'; boss.timer = cfg.leapDuration;
     } else if (boss.state === 'leap') {
       boss.y = cfg.ground - boss.h;
       game.waves.push(makeHeadphone(boss.x, cfg.ground, -1), makeHeadphone(boss.x + boss.w - 22, cfg.ground, 1));

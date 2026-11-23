@@ -142,7 +142,8 @@ canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
   right: var(--right);
   bottom: var(--bottom);
   width: clamp(150px, 44vmin, 195px);
-  height: clamp(150px, 44vmin, 195px);
+  --main-pad: clamp(72px, 21vmin, 96px);
+  height: calc(var(--main-pad) * 2 + 8px);
 }
 .pad {
   position: absolute;
@@ -164,12 +165,12 @@ canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
   font-weight: 800;
 }
 .pad span { font-size: 18px; line-height: 1; }
-.pad[data-action="jump"] { right: 12%; top: 0; }
+.pad[data-action="jump"] { right: 0; top: 0; width: var(--main-pad); }
 .pad[data-action="grenade"] { left: 0; bottom: 5%; background: #e2f6b8f5; color: #304d27; }
 .pad.fire {
   right: 0;
   bottom: 0;
-  width: clamp(76px, 22vmin, 100px);
+  width: var(--main-pad);
   color: #572c13;
   background: radial-gradient(circle at 34% 26%, #fff29a, #ffad55 80%);
 }

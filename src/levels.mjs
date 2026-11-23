@@ -34,11 +34,10 @@ export const ENEMIES = {
   },
 };
 
-// 第 2 段与最终段都有 Boss，其余段抵达出口即可通关。
 export const BOSS = {
-  health: 60, width: 78, height: 64, label: '6狗',
-  trigger: 340, arenaLeft: 320, arenaRight: 960, spawnX: 690, ground: 286,
-  intro: 3.0, warning: 1, dashSpeed: 250, dashDuration: 1.1,
+  width: 78, height: 64, label: '6狗', ground: GROUND,
+  intro: 3.0, warning: 1, dashSpeed: 181, dashDuration: 1.35,
+  leapSpeed: 94, leapDuration: 1.5, leapHeight: 78,
   waveSpeed: 175, recovery: 1.1, damage: 1,
 };
 
@@ -134,8 +133,6 @@ grenades(ch2, 1300, 270);
 health(ch2, 1900, 270);
 health(ch2, 2460, 270);
 cp(ch2, 100); cp(ch2, 520); cp(ch2, 1050); cp(ch2, 1580); cp(ch2, 2160); cp(ch2, 2570);
-ch2.boss = { ...BOSS, health: 40, trigger: 2640, arenaLeft: 2620, arenaRight: 3260, spawnX: 2990, ground: GROUND };
-ch2.exit = { x: 3260, y: GROUND - 50, w: 34, h: 50 };
 grenades(ch2, 2575, 270);
 hint(ch2, 0, '书堆可以一路踩上去，高处的补给更好');
 hint(ch2, 300, '淡色横板可以从下方穿过去');
@@ -269,8 +266,6 @@ decorate(ch6, 1400, 286, 'cup');
 grenades(ch6, 60, 270);
 weapon(ch6, 120, 270, 'heavy');
 health(ch6, 200, 270);
-ch6.boss = { ...BOSS, trigger: 340, arenaLeft: 320, arenaRight: 960, spawnX: 690, ground: GROUND };
-ch6.exit = { x: 1745, y: GROUND - 50, w: 34, h: 50 };
 cp(ch6, 210);
 hint(ch6, 0, '把最后一发手榴弹留在这里');
 hint(ch6, 280, '它冲过来时跳起来躲开，落地的震波要跳过');
@@ -304,3 +299,36 @@ cp(printer, 120); cp(printer, 740); cp(printer, 1350); cp(printer, 1740);
 hint(printer, 0, '踏上打印机顶盖，越过纸张和出纸口');
 
 export const LEVELS = [ch1, ch2, ch3, ch4, ch5, floor, monitor, printer, ch6];
+
+const bossCoats = [
+  { name: '金黄', light: '#efaf43', dark: '#955028', mark: '#ffd88d', pattern: 'solid' },
+  { name: '黑白花', light: '#fff9f1', dark: '#9b9b9f', mark: '#272630', pattern: 'patch' },
+  { name: '灰狼色', light: '#a3b8c3', dark: '#3e5464', mark: '#e0ebee', pattern: 'mask' },
+  { name: '棕色条纹', light: '#de924e', dark: '#814323', mark: '#61341f', pattern: 'brindle' },
+  { name: '白底黑斑', light: '#fffcf2', dark: '#b5bec1', mark: '#252f38', pattern: 'spots' },
+  { name: '黑褐', light: '#54505d', dark: '#24202d', mark: '#d58346', pattern: 'points' },
+  { name: '红棕白花', light: '#d98456', dark: '#873b31', mark: '#fff0d7', pattern: 'patch' },
+  { name: '蓝灰斑', light: '#9ba9c5', dark: '#4b5874', mark: '#354360', pattern: 'spots' },
+  { name: '奶油白', light: '#fff8de', dark: '#c3a782', mark: '#f9dfaf', pattern: 'mask' },
+];
+
+for (const [index, level] of LEVELS.entries()) {
+  const hasRoomAtEnd = level === ch2 || level === ch6;
+  const arenaLeft = level === ch2 ? 2620 : level === ch6 ? 1180 : level.width;
+  if (!hasRoomAtEnd) {
+    const lastSurface = level.platforms.find(p => p.y === GROUND && p.x + p.w === level.width);
+    lastSurface.w += 635;
+    level.width += 635;
+  }
+  const arenaRight = level.width - 46;
+  level.boss = {
+    ...BOSS, arenaLeft, arenaRight,
+    trigger: arenaLeft + 20,
+    spawnX: arenaLeft + (level === ch2 ? 370 : 310),
+    health: [45, 60, 63, 66, 72, 75, 78, 84, 90][index],
+    coat: bossCoats[index],
+  };
+  level.exit = { ...level.exit, x: arenaRight + 7 };
+  if (level !== ch2) cp(level, arenaLeft - 48);
+  hint(level, arenaLeft - 10, '击败前方的 6 狗，出口才会打开。');
+}
