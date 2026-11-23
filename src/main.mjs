@@ -169,12 +169,12 @@ function updateHud() {
     const stage = game.checkpoint >= 0 ? `第 ${game.checkpoint + 1} 处检查点` : "本段起点";
     showNotice(`${game.respawnReason}已回到${stage}，还剩 ${game.lives + 1} 条命`);
   }
-  if (game.lives !== previousLives) {
-    const totalLives = game.status === 'lost' ? 0 : game.lives + 1;
+  const totalLives = game.status === 'lost' ? 0 : game.lives + 1;
+  if (totalLives !== previousLives) {
     lives.textContent = `×${totalLives}`;
     lives.setAttribute("aria-label", `剩余命数 ${totalLives}`);
     lives.classList.toggle("depleted", game.lives === 0);
-    previousLives = game.lives;
+    previousLives = totalLives;
   }
   let entry;
   for (const candidate of game.level.hints) {

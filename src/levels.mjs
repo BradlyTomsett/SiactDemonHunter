@@ -1,4 +1,5 @@
 export const VIEW = { width: 640, height: 360 };
+export const GROUND = 286;
 
 export const PLAYER = {
   width: 17, height: 27, speed: 188, acceleration: 1650,
@@ -38,8 +39,6 @@ export const BOSS = {
   waveSpeed: 175, recovery: 1.1, damage: 1,
 };
 
-const GROUND = 286;
-
 function createChapter(id, name, width, subtitle) {
   return {
     id, name, width, subtitle,
@@ -68,7 +67,7 @@ const health = (c, x, y, amount = 2) => c.supplies.push({ x, y, amount });
 const weapon = (c, x, y, type) => c.supplies.push({ x, y, type });
 const grenades = (c, x, y, amount = 2) => c.supplies.push({ x, y, type: 'grenade', amount });
 const hazard = (c, x, w, y, kind, h = 14) => c.hazards.push({ x, y, w, h, kind, damage: 1 });
-const cp = (c, x) => c.checkpoints.push({ x, y: GROUND });
+const cp = (c, x, y = GROUND) => c.checkpoints.push({ x, y });
 const hint = (c, x, text) => c.hints.push({ x, text });
 const decorate = (c, x, y, kind) => c.decoration.push({ x, y, kind });
 
@@ -89,12 +88,12 @@ decorate(ch1, 1175, 286, 'cup');
 patrol(ch1, 760, 700, 850);
 patrol(ch1, 1600, 1520, 1720);
 hazard(ch1, 1240, 60, GROUND - 14, 'crumb');
-health(ch1, 300, 270);
+health(ch1, 307, 235);
 weapon(ch1, 715, 251, 'spread');
 grenades(ch1, 1010, 180);
 health(ch1, 1350, 270);
 weapon(ch1, 1900, 270, 'rapid');
-cp(ch1, 120); cp(ch1, 560); cp(ch1, 1150); cp(ch1, 1500); cp(ch1, 1900);
+cp(ch1, 120, 262); cp(ch1, 560); cp(ch1, 1150); cp(ch1, 1500); cp(ch1, 1900);
 hint(ch1, 0, '摇杆移动与瞄准，红黄警示区会伤人');
 hint(ch1, 240, '跳上书本，再越过桌缝');
 hint(ch1, 700, '前方有巡逻怪，按住开火可以连发');
@@ -250,7 +249,7 @@ weapon(ch5, 1000, 270, 'spread');
 health(ch5, 2350, 270);
 grenades(ch5, 2220, 270);
 weapon(ch5, 2480, 270, 'heavy');
-cp(ch5, 100); cp(ch5, 500); cp(ch5, 850); cp(ch5, 1250); cp(ch5, 1750); cp(ch5, 2230);
+cp(ch5, 100); cp(ch5, 500); cp(ch5, 830); cp(ch5, 1250); cp(ch5, 1730); cp(ch5, 2230);
 hint(ch5, 0, '抽屉可以踩，是一层一层的高台');
 hint(ch5, 300, '这一段的敌人最密，善用手榴弹');
 hint(ch5, 800, '抽屉上通常放着武器');
@@ -259,7 +258,7 @@ hint(ch5, 1700, '弹药有限，用完会自动换回普通枪');
 hint(ch5, 2200, '打完这一批就是桌缝了');
 
 // ── 9/9 桌缝终局：Boss 竞技场 ────────────────────────────────────────────
-const ch6 = createChapter('ch6', '第一关 · 6/9 桌缝终局', 1800, '桌缝尽头的守卫');
+const ch6 = createChapter('ch6', '第一关 · 9/9 桌缝终局', 1800, '桌缝尽头的守卫');
 desk(ch6, 0, 240);
 desk(ch6, 300, 1500);
 decorate(ch6, 900, 286, 'monitor');

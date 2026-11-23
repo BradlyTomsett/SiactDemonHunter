@@ -1,0 +1,219 @@
+import { GROUND, VIEW } from './levels.mjs';
+
+const { width: W, height: H } = VIEW;
+const BASES = new Set(['desk', 'floor', 'monitorTop', 'printerTop']);
+const MATERIALS = {
+  desk: ['#f5d7a8', '#c99a65', '#835637'],
+  floor: ['#eee5d5', '#b0a99d', '#676b73'],
+  monitorTop: ['#747f89', '#2e3847', '#131923'],
+  printerTop: ['#faf9ef', '#c5cdd1', '#667781'],
+  keyboard: ['#555c68', '#292f3c', '#171921'],
+  books: ['#a34e40', '#efe0bd', '#8d4439'],
+  stand: ['#aeb9c1', '#677883', '#394751'],
+  drawer: ['#dabb8c', '#a67950', '#62412e'],
+  crate: ['#e3bc83', '#bc8952', '#805730'],
+  plank: ['#efdcb9', '#b48d5b', '#69482e'],
+  shelf: ['#a3afb4', '#71818a', '#3d4b56'],
+};
+
+export function createOfficeArt(ctx, { round, oval, line }) {
+  const gapsByLevel = new WeakMap();
+  const fill = (x, y, w, h, color) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  function gradient(y, h, ...colors) {
+    const paint = ctx.createLinearGradient(0, y, 0, y + h);
+    colors.forEach((color, i) => paint.addColorStop(i / (colors.length - 1), color));
+    return paint;
+  }
+  function visible(item, camera, margin = 6) {
+    return item.x + (item.w ?? 180) >= camera - margin && item.x <= camera + W + margin;
+  }
+
+  function background(camera, level) {
+    fill(0, 0, W, H, gradient(0, H, '#e3e8e7', '#b2bec2', '#66727b', '#24303d'));
+    const ceiling = -(camera * .12 % 180);
+    for (let x = ceiling - 180; x < W + 180; x += 180) {
+      line(x, 0, x + 45, 70, '#b4bec2', 1);
+      round(x + 28, 27, 100, 12, 2, '#aebabe');
+      fill(x + 34, 30, 88, 4, '#faf9e9');
+    }
+    line(0, 67, W, 67, '#a8b4b9', 2);
+
+    const partition = -(camera * .25 % 260);
+    for (let x = partition - 260; x < W; x += 260) {
+      fill(x + 12, 77, 46, 103, '#74676b');
+      fill(x + 15, 81, 40, 99, '#9a8582');
+      fill(x + 66, 79, 182, 63, gradient(79, 63, '#95acac', '#acc0be'));
+      for (let y = 86; y < 142; y += 7) fill(x + 69, y, 176, 2, '#d0dad580');
+      fill(x, 138, 256, 46, '#aebbbdcc');
+      for (let y = 145; y < 180; y += 7) fill(x, y, 256, 2, '#e2e9e0b0');
+      fill(x, 184, 256, 15, '#aa5352');
+      fill(x, 135, 3, 65, '#d9ded7');
+
+      if (level.id === 'floor') {
+        round(x + 31, 164, 96, 15, 3, '#b2a187');
+        fill(x + 38, 179, 9, 58, '#7d898c');
+        fill(x + 109, 179, 9, 58, '#7d898c');
+      }
+      round(x + 181, 160, 19, 24, 4, '#c2c7bc');
+      for (const [dx, dy, rx, ry] of [[-8, -10, 10, 5], [9, -16, 12, 6], [-3, -22, 7, 11], [9, -5, 9, 4]]) {
+        oval(x + 191 + dx, 160 + dy, rx, ry, '#627f70');
+      }
+    }
+    // The part behind the jumping path has no sharp horizontal features.
+    fill(0, 164, W, H - 164, gradient(164, 135, '#59687500', '#455666d9', '#233344'));
+  }
+
+  function gaps(level, camera) {
+    let gaps = gapsByLevel.get(level);
+    if (!gaps) {
+      const bases = level.platforms.filter(item => BASES.has(item.kind)).sort((a, b) => a.x - b.x);
+      gaps = [];
+      let right = 0;
+      for (const base of bases) {
+        if (base.x > right) gaps.push({ x: right, w: base.x - right });
+        right = Math.max(right, base.x + base.w);
+      }
+      gapsByLevel.set(level, gaps);
+    }
+    for (const gap of gaps) {
+      if (!visible(gap, camera)) continue;
+      const end = gap.x + gap.w;
+      fill(gap.x, GROUND, gap.w, H - GROUND, gradient(GROUND, H - GROUND, '#192736', '#101823', '#090e16'));
+      line(gap.x, GROUND, gap.x, GROUND + 13, '#ffc583', 2);
+      line(end, GROUND, end, GROUND + 13, '#ffc583', 2);
+      const mid = gap.x + gap.w / 2;
+      line(mid - 4, GROUND + 17, mid, GROUND + 21, '#b1c0c7', 1.4);
+      line(mid, GROUND + 21, mid + 4, GROUND + 17, '#b1c0c7', 1.4);
+    }
+  }
+
+  function screen(x, y, w, h, camera) {
+    round(x, y, w, h, 4, gradient(y, h, '#43505c', '#151a26'));
+    round(x + 4, y + 4, w - 8, h - 8, 2, gradient(y + 4, h - 8, '#21384d', '#102431'));
+    for (let row = 0; row < Math.min(8, Math.floor((h - 12) / 5)); row++) {
+      const tone = ['#619991', '#a58cb8', '#819caf'][row % 3];
+      for (let left = Math.max(x + 12, x + 12 + Math.floor((camera - x - 56) / 108) * 108); left + 20 < Math.min(x + w - 8, camera + W + 8); left += 108) {
+        const length = Math.min(30 + (row * 23 % 62), x + w - left - 8);
+        fill(left + (row % 2) * 5, y + 9 + row * 5, Math.max(1, length - 5), 1, tone);
+      }
+    }
+    line(x + 6, y + 5, x + w - 6, y + 5, '#e7f4fb32');
+  }
+
+  function platform(p, camera) {
+    const { x, y, w, h, kind } = p;
+    const [light, mid, dark] = MATERIALS[kind];
+    const end = x + w;
+    const stripe = (spacing, paint) => {
+      const start = Math.max(0, Math.floor((camera - x - spacing) / spacing));
+      for (let i = start; x + i * spacing < Math.min(end, camera + W + spacing); i++) paint(x + i * spacing, i);
+    };
+    if (kind === 'desk') {
+      const cabinet = Math.min(82, w * .26);
+      fill(x + 7, y + h - 1, 12, H - y - h + 1, gradient(y + h, 55, '#909ca5', '#394653'));
+      fill(end - 19, y + h - 1, 12, H - y - h + 1, '#65757f');
+      round(end - cabinet - 25, y + h - 2, cabinet, 62, 3, gradient(y + h, 55, '#a78765', '#675546'));
+      for (let i = 1; i <= 3; i++) {
+        line(end - cabinet - 24, y + h + i * 13, end - 26, y + h + i * 13, '#42372e');
+        round(end - cabinet / 2 - 28, y + h + i * 13 - 5, 8, 2, 1, '#c6b8a6');
+      }
+    } else if (kind === 'monitorTop') {
+      screen(x, y + 7, w, H - y + 2, camera);
+    } else if (kind === 'printerTop') {
+      fill(x, y + h - 1, w, H - y - h + 1, gradient(y + h, 55, '#c7ced0', '#778b93'));
+      round(x + w * .1, y + 29, w * .73, 21, 4, '#202934');
+      round(x + w * .16, y + 39, w * .52, 15, 2, '#ebede3');
+      line(x + w * .19, y + 43, x + w * .65, y + 43, '#a4b2bc');
+      round(end - 46, y + 29, 33, 13, 3, '#285066');
+      oval(end - 18, y + 35, 2, 2, '#83f1b4');
+    } else if (kind === 'floor') {
+      fill(x, y + h - 1, w, H - y - h + 1, gradient(y + h, 50, '#65707a', '#292f3a'));
+    }
+    fill(x, y, w, h, gradient(y, h, light, mid, dark));
+
+    if (kind === 'desk') {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      stripe(39, (start, i) => {
+        const yy = y + 5 + i * 7 % 13;
+        const length = 29 + i * 11 % 52;
+        ctx.beginPath();
+        ctx.moveTo(start, yy);
+        ctx.bezierCurveTo(start + 13, yy - 2, start + length * .6, yy + 2, start + length, yy);
+        ctx.strokeStyle = i % 2 ? '#f9e6c16b' : '#6744296b';
+        ctx.lineWidth = .65;
+        ctx.stroke();
+      });
+      ctx.restore();
+      line(x + 1, y + h - 3, end - 1, y + h - 3, '#5e422e72', 1);
+    } else if (kind === 'floor') {
+      stripe(68, start => line(start, y + 3, start, y + h - 1, '#625f5d', 1));
+      line(x + 1, y + 12, end - 1, y + 12, '#826f60', 1);
+    } else if (kind === 'keyboard') {
+      for (let key = x + 5, i = 0; key + 10 < end - 4; key += 12, i++) {
+        round(key, y + 4, 10, 7, 1.5, '#101721');
+        round(key + 1, y + 4, 8, 5, 1, '#76808d');
+        round(key, y + 13, 10, 6, 1.5, '#444e60');
+        if (i % 2 === 0) fill(key + 3, y + 6, 3, 1, '#d6dce1');
+      }
+    } else if (kind === 'books') {
+      for (let page = y + 5; page < y + h - 3; page += 10) {
+        const thickness = Math.min(7, y + h - 3 - page);
+        fill(x + 4, page, w - 8, thickness, '#eadfc5');
+        for (let row = page + 2; row < page + thickness; row += 2) fill(x + 5, row, w - 10, .5, '#a69c85');
+      }
+      round(x + 2, y + 4, 3, h - 6, 1, '#d0a164');
+    } else if (kind === 'drawer' || kind === 'crate') {
+      round(x + 3, y + 4, w - 6, h - 7, 2, '#63422e60');
+      round(x + w / 2 - 9, y + 9, 18, 4, 2, '#d8c8ab');
+    } else if (kind === 'monitorTop' || kind === 'printerTop') {
+      stripe(13, start => {
+        if (start > x + 5 && start + 5 < end - 3) fill(start, y + 5, 5, 2, '#202a36');
+      });
+    }
+
+    // The rim coincides with the collision top and ends exactly at each edge.
+    fill(x, y, w, p.oneway ? 1.5 : 2, p.oneway ? '#b9e3e6' : '#fff0c7');
+    fill(x, y + 2, 1, Math.min(h - 2, 8), '#fff0c7');
+    fill(end - 1, y + 2, 1, Math.min(h - 2, 8), '#fff0c7');
+  }
+
+  function decoration({ x, y, kind }, camera) {
+    if (kind === 'monitor') {
+      round(x + 65, y - 39, 25, 37, 3, gradient(y - 39, 37, '#415262', '#18242d'));
+      screen(x, y - 144, 155, 111, camera);
+      oval(x + 146, y - 39, 1.3, 1, '#8ecfc1');
+    } else if (kind === 'cup') {
+      ctx.strokeStyle = '#aab7bc';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(x + 34, y - 24, 9, -1.55, 1.55);
+      ctx.stroke();
+      round(x, y - 39, 34, 39, 7, gradient(y - 39, 39, '#e1e5d9', '#9caeae'));
+      oval(x + 17, y - 38, 17, 4, '#f0ebda');
+      oval(x + 17, y - 38, 13, 2.5, '#744b38');
+    } else if (kind === 'coil' || kind === 'crumbcoil') {
+      for (let i = 0; i < 4; i++) {
+        ctx.strokeStyle = i % 2 ? '#4f626c' : '#2d3a46';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(x + 11 + 8 * i, y - 4, 11, 4, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else if (kind === 'staple') {
+      round(x, y - 5, 40, 5, 2, '#56626a');
+      line(x + 4, y - 8, x + 36, y - 11, '#8c3d46', 5);
+    } else {
+      const color = kind === 'pencil' ? '#c99539' : kind === 'eraser' ? '#b98d89' : '#3a6a82';
+      round(x, y - 6, 41, 5, 2, color);
+      line(x + 7, y - 5, x + 35, y - 5, '#e5ded590');
+    }
+  }
+
+  return { background, gaps, platform, decoration, visible };
+}

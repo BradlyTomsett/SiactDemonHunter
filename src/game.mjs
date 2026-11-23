@@ -65,10 +65,12 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
 
 // 死亡后落到"已经过的、离死亡点最近"的检查点。往前面的检查点送会让玩家用死亡换进度，
 // 所以只在身后找。
-function nearestCheckpoint(game, x) {
+function nearestCheckpoint(game, player) {
   const points = game.level.checkpoints || [];
   let index = -1;
-  for (let i = 0; i < points.length; i++) if (points[i].x <= x + 12) index = i;
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].x <= player.x + player.w / 2 && player.y + player.h <= points[i].y + 1) index = i;
+  }
   return index;
 }
 
@@ -88,7 +90,7 @@ function die(game, reason) {
     return true;
   }
   game.status = "lost";
-  game.reason = `${reason}${PLAYER.lives + 1} 条命已用完。`;
+  game.reason = `${reason}命数已用完。`;
   return false;
 }
 
@@ -187,7 +189,7 @@ function stepShots(game, fire, dt) {
     if (game.level.platforms.some(solid => !solid.oneway && overlaps(sweep, solid))) return false;
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
     if (dropping) { dropping.destroyed = true; sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
-    const targets = [...game.enemies, ...bossTargets, ...game.waves.filter(wave => wave.health > 0)];
+    const targets = [...game.waves, ...game.enemies, ...bossTargets];
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < VIEW.height;
     enemy.health = Math.max(0, enemy.health - bullet.damage);
@@ -354,50 +356,41 @@ function stepBoss(game, dt) {
       boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'wave';
     }
   }
-  if (boss.state !== 'dying' && overlaps(game.player, boss) && damagePlayer(game, boss, cfg.damage)) return true;
-  separateBoss(game);
-  game.waves = game.waves.filter(wave => {
-    wave.flash = Math.max(0, (wave.flash || 0) - dt);
+  const player = game.player;
+  if (boss.state !== 'dying' && player.invincible <= 0 && overlaps(player, boss)) {
+    if (damagePlayer(game, boss, cfg.damage)) return true;
+    separateBoss(game, player, boss, cfg);
+  }
+  const remainingWaves = [];
+  for (const wave of game.waves) {
+    wave.flash = Math.max(0, wave.flash - dt);
     wave.x += wave.direction * cfg.waveSpeed * rage * dt;
     if (wave.health <= 0) {
       sparks(game, wave.x + wave.w / 2, wave.y + wave.h / 2, '#ffb052', 12);
-      return false;
+      continue;
     }
     if (overlaps(game.player, wave)) {
-      damagePlayer(game, wave, cfg.damage);
-      return false;
+      if (damagePlayer(game, wave, cfg.damage)) return true;
+      continue;
     }
-    return wave.x > cfg.arenaLeft - 30 && wave.x < cfg.arenaRight + 30;
-  });
+    if (wave.x > cfg.arenaLeft - 30 && wave.x < cfg.arenaRight + 30) remainingWaves.push(wave);
+  }
+  game.waves = remainingWaves;
   return false;
 }
 
-// 玩家和 Boss 重合时把玩家挤出去。否则两个人叠在一起，玩家每一帧都被判定受伤、
-// 又被墙挡住退不开，就会一直掉血到死。
-function separateBoss(game) {
-  const boss = game.boss;
-  const cfg = game.level.boss;
-  const p = game.player;
-  if (!boss || !cfg || ['waiting', 'dying', 'defeated'].includes(boss.state)) return;
-  const overlapX = (p.w + boss.w) / 2 - Math.abs((p.x + p.w / 2) - (boss.x + boss.w / 2));
-  const overlapY = (p.h + boss.h) / 2 - Math.abs((p.y + p.h / 2) - (boss.y + boss.h / 2));
-  if (overlapX <= 0 || overlapY <= 0) return;
-  // 从上方接触：直接站到它头上，而不是被卡进身体里
-  if (overlapY < overlapX && p.y + p.h / 2 < boss.y + boss.h / 2) {
-    p.y = boss.y - p.h;
-    if (p.vy < 0) p.vy = 0;
-    p.grounded = true;
+// 受伤时优先推向最近的空地，无敌期间可穿过 Boss，避免被追着挤回墙角。
+function separateBoss(game, player, boss, arena) {
+  const left = boss.x - player.w - 0.5;
+  const right = boss.x + boss.w + 0.5;
+  const positions = Math.abs(player.x - left) <= Math.abs(player.x - right) ? [left, right] : [right, left];
+  for (const x of positions) {
+    if (x < arena.arenaLeft || x + player.w > arena.arenaRight) continue;
+    if (game.level.platforms.some(solid => !solid.oneway && overlaps({ ...player, x }, solid))) continue;
+    player.vx = Math.sign(x - player.x) * PLAYER.knockbackSpeed;
+    player.x = x;
     return;
   }
-  const push = overlapX + 0.5;
-  const dir = p.x + p.w / 2 >= boss.x + boss.w / 2 ? 1 : -1;
-  const room = dir > 0 ? (cfg.arenaRight - p.w) - p.x : p.x - cfg.arenaLeft;
-  const moved = clamp(room, 0, push);
-  p.x = clamp(p.x + dir * moved, cfg.arenaLeft, cfg.arenaRight - p.w);
-  const left = push - moved;
-  // 玩家已经被挤到墙边还重合，就把 Boss 推开，保证一定能脱身
-  if (left > 0) boss.x = clamp(boss.x - dir * left, cfg.arenaLeft, cfg.arenaRight - boss.w);
-  p.vx = dir * PLAYER.knockbackSpeed * 0.6;
 }
 
 function stepDroppings(game, dt) {
@@ -408,8 +401,9 @@ function stepDroppings(game, dt) {
   if (game.dropTimer <= 0) {
     const cfg = game.level.boss;
     const target = Math.random() < 0.5 ? game.player.x : boss.x;
-    const x = clamp(target + (Math.random() - 0.5) * 100, cfg.arenaLeft, cfg.arenaRight - 18);
-    game.droppings.push({ x, y: -26, w: 26, h: 26, speed: 55 + Math.random() * 20 });
+    const size = 26;
+    const x = clamp(target + (Math.random() - 0.5) * 100, cfg.arenaLeft, cfg.arenaRight - size);
+    game.droppings.push({ x, y: -size, w: size, h: size, speed: 55 + Math.random() * 20 });
     game.dropTimer = 2.6 + Math.random() * 1.8;
   }
   const respawns = game.respawns;
@@ -454,7 +448,7 @@ export function stepGame(game, input, dt) {
     return;
   }
 
-  game.checkpoint = Math.max(game.checkpoint, nearestCheckpoint(game, p.x));
+  game.checkpoint = Math.max(game.checkpoint, nearestCheckpoint(game, p));
   const beforeEnemies = game.respawns;
   stepEnemies(game, dt);
   if (game.respawns !== beforeEnemies || game.status !== "playing") return;
