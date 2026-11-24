@@ -1,6 +1,6 @@
 import { createGame, restoreGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
-import { CHARACTERS, FOOD_ICONS, GRENADE, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
+import { CHARACTERS, GRENADE, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
 import { drawCharacterPortraits } from "./portraits.mjs";
 import { clearSave, makeSnapshot, readSave, writeSave } from "./save.mjs";
@@ -17,6 +17,7 @@ const pauseButton = byId("pause");
 const overlay = byId("overlay");
 const rewards = byId("rewards");
 const characterSelect = byId("character-select");
+const stageSelect = byId("stage-select");
 const stageSummary = byId("stage-summary");
 const primary = byId("primary");
 const guide = byId("guide");
@@ -52,6 +53,7 @@ async function lockLandscape() {
 
 let levelIndex = 0;
 let selectedCharacter = 'minister';
+let selectedStage = 0;
 let completedTime = 0;
 let levelStartScore = 0;
 let game = null;
@@ -103,6 +105,7 @@ function panel(next, title, message, label, action) {
   rewards.hidden = true;
   stageSummary.hidden = true;
   characterSelect.hidden = next !== 'title';
+  stageSelect.hidden = next !== 'title';
   primary.hidden = false;
   byId("menu-title").textContent = title;
   const menuMessage = byId("menu-message");
@@ -174,8 +177,10 @@ function resumeFromSave(save) {
 
 function showTitle() {
   completedTime = 0;
+  selectedStage = 0;
   clearProgress();
   loadLevel(0, PLAYER.lives);
+  syncStageButtons();
   panel(
     "title",
     "公司打狗",
@@ -201,7 +206,24 @@ characterSelect.addEventListener('click', event => {
   for (const option of characterSelect.querySelectorAll('[data-character]')) {
     option.setAttribute('aria-pressed', String(option.dataset.character === characterId));
   }
-  loadLevel(0, PLAYER.lives);
+  loadLevel(selectedStage, PLAYER.lives);
+  byId('menu-chapter').textContent = game.level.name;
+});
+
+function syncStageButtons() {
+  for (const option of stageSelect.querySelectorAll('[data-stage]')) {
+    option.setAttribute('aria-pressed', String(Number(option.dataset.stage) === selectedStage));
+  }
+}
+
+stageSelect.addEventListener('click', event => {
+  const button = event.target.closest('[data-stage]');
+  const index = Number(button?.dataset.stage);
+  if (screen !== 'title' || !Number.isInteger(index) || !LEVELS[index]) return;
+  selectedStage = index;
+  syncStageButtons();
+  loadLevel(index, PLAYER.lives);
+  byId('menu-chapter').textContent = game.level.name;
 });
 
 function pause(message = "点击继续，回到当前关卡。") {
@@ -223,7 +245,7 @@ function togglePause() {
 
 function updateDevice() {
   guide.textContent = touch.matches
-    ? "轻推瞄准 · 推远移动 · 按住射击连发"
+    ? "摇杆移动与瞄准 · 按住射击连发"
     : "方向键移动和瞄准 · 空格跳跃 · 按住 J 连发 · K 投掷";
   input.clear();
   syncVisibility();
@@ -314,9 +336,6 @@ function showStageSummary(finalStage) {
   addItem('🍽️', `食品收集（${points.food} 分）`, `${game.collectedFood.size}/${game.level.food.length}`);
   addItem('⏱️', '本段用时', timeText(game.elapsed));
   if (finalStage) addItem('⌛', '总用时', timeText(completedTime + game.elapsed));
-  for (const [type, icon] of Object.entries(FOOD_ICONS)) {
-    addItem(icon, type, stats.foodCounts[type] ?? 0);
-  }
   byId('reward-prompt').hidden = finalStage;
   stageSummary.hidden = false;
 }

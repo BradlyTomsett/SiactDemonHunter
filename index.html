@@ -72,6 +72,15 @@
             </button>
           </div>
         </div>
+        <div id="stage-select" class="stage-select" role="group" aria-label="选择起始关卡">
+          <p class="stage-prompt">从第几段开始 <span>只在开始新游戏时生效</span></p>
+          <div class="stage-buttons">
+            <button type="button" data-stage="0" aria-pressed="true">第 1 段</button>
+            <button type="button" data-stage="1" aria-pressed="false">第 2 段</button>
+            <button type="button" data-stage="2" aria-pressed="false">第 3 段</button>
+            <button type="button" data-stage="3" aria-pressed="false">第 4 段</button>
+          </div>
+        </div>
         <div id="rewards" class="rewards" hidden>
           <button type="button" data-reward="life"><span class="reward-art life-art" aria-hidden="true"><i></i><b></b></span><span>增加 1 条命</span></button>
           <button type="button" data-reward="boost"><span class="reward-art boost-art" aria-hidden="true"><i></i><b>⚡</b></span><span>火力提升 50%<br>持续 30 秒</span></button>

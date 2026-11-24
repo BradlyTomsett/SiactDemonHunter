@@ -29,6 +29,9 @@ export function createInput(controls, onPause, canPlay) {
 
   const isRotated = () => document.documentElement.dataset.rotated === "1";
 
+  // 摇杆只有 8 个方向；推过这个阈值才真正移动，推得浅就站着不动（不再有"只瞄准"模式）。
+  const MOVE_THRESHOLD = 0.35;
+
   function moveStick(event) {
     const rect = stick.getBoundingClientRect();
     const radius = rect.width * 0.36;
@@ -40,11 +43,11 @@ export function createInput(controls, onPause, canPlay) {
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     knob.style.transform = `translate(calc(-50% + ${x * radius}px), calc(-50% + ${y * radius}px))`;
-    if (length < 0.12) { stickX = 0; stickY = 0; stickMove = 0; return; }
-    const angle = Math.round(Math.atan2(y, x) / (Math.PI / 8)) * (Math.PI / 8);
+    if (length < MOVE_THRESHOLD) { stickX = 0; stickY = 0; stickMove = 0; return; }
+    const angle = Math.round(Math.atan2(y, x) / (Math.PI / 4)) * (Math.PI / 4);
     stickX = Math.abs(Math.cos(angle)) < 1e-6 ? 0 : Math.cos(angle);
     stickY = Math.abs(Math.sin(angle)) < 1e-6 ? 0 : Math.sin(angle);
-    stickMove = length >= 0.55 ? Math.sign(stickX) : 0;
+    stickMove = Math.sign(stickX);
   }
 
   zone.addEventListener("pointerdown", event => {

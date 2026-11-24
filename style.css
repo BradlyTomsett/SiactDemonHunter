@@ -258,6 +258,21 @@ h1 {
 .character-card strong, .character-card small { display: block; }
 .character-card strong { font-size: clamp(14px, 2.8vh, 18px); font-size: clamp(14px, 2.8cqh, 18px); }
 .character-card small { margin-top: 2px; font-size: clamp(11px, 2.1vh, 14px); font-size: clamp(11px, 2.1cqh, 14px); line-height: 1.25; }
+
+.stage-select { margin-top: 10px; }
+.stage-prompt {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px;
+  margin: 0 0 6px; color: #135f59; font-weight: 850;
+  font-size: clamp(14px, 2.6vh, 18px); font-size: clamp(14px, 2.6cqh, 18px);
+}
+.stage-prompt span { color: #516a68; font-weight: 500; font-size: 12px; }
+.stage-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.stage-buttons button {
+  min-height: 40px; padding: 5px 4px;
+  border: 2px solid #bfd8cd; border-radius: 12px;
+  background: #f7fbf6; font-weight: 800; font-size: 13px;
+}
+.stage-buttons button[aria-pressed="true"] { border-color: #008674; background: #dbf5ea; box-shadow: 0 0 0 2px #008674; }
 .selection-mark {
   position: absolute; top: 10px; right: 10px; padding: 3px 6px;
   border-radius: 7px; color: white; background: #00776c; font-size: 11px; font-weight: 800;
@@ -358,4 +373,13 @@ h1 {
   h1 { font-size: 34px; }
   .panel { padding: 12px 16px; }
   .guide, .install-status { margin-top: 6px; }
+}
+
+/* 舞台很矮（横屏手机、竖屏旋转）时收紧标题页，保证选角 + 选段一屏放得下。 */
+@container (max-height: 460px) {
+  .game[data-screen="title"] #menu-message { display: none; }
+  .game[data-screen="title"] .guide { display: none; }
+  .game[data-screen="title"] .character-art { height: clamp(48px, 15vmin, 110px); }
+  .game[data-screen="title"] .character-select,
+  .game[data-screen="title"] .stage-select { margin-top: 6px; }
 }
