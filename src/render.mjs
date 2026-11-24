@@ -465,8 +465,25 @@ export function createRenderer(canvas) {
     line(0, 11, 0, 19, '#8f1f2a', 2.2);
     oval(0, 3 + bob, 4.6, 4.8, '#e8bd96');
     round(-4.8, -1.5 + bob, 9.6, 3.8, 1.6, '#20262e');
-    round(6.5, 16, 9, 7, 1.5, '#3b2a1f');
-    line(8.5, 16, 13.5, 16, '#c9a26a', 1);
+    if (h.photoPose > 0) {
+      const lift = Math.min(1, (1 - h.photoPose) * 4, h.photoPose * 5);
+      const cameraY = 17 - lift * 12;
+      line(2, 11, 7, cameraY + 4, '#29333f', 3);
+      oval(7, cameraY + 4, 1.8, 1.8, '#e8bd96');
+      round(4, cameraY - 4, 10, 8, 1.5, '#202f3d');
+      round(6, cameraY - 6, 4, 2, 1, '#667e8d');
+      round(12, cameraY - 3, 4, 6, 1.5, '#59768a');
+      line(15, cameraY - 1.5, 15, cameraY + 1.5, '#b1eaff', 1.5);
+      if (h.photoPose <= .56 && h.photoPose >= .42) {
+        oval(18, cameraY, 10, 7, '#fff3bc44');
+        line(17, cameraY, 26, cameraY, '#fffbe6', 1.8);
+        line(17, cameraY - 2, 23, cameraY - 7, '#fff5cc', 1.5);
+        line(17, cameraY + 2, 23, cameraY + 7, '#fff5cc', 1.5);
+      }
+    } else {
+      round(6.5, 16, 9, 7, 1.5, '#3b2a1f');
+      line(8.5, 16, 13.5, 16, '#c9a26a', 1);
+    }
     ctx.restore();
   }
 

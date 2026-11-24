@@ -927,16 +927,29 @@ function updateHelper(game, dt) {
       x: Math.min(game.camera - 20, boss.cfg.arenaLeft - 20),
       y: boss.cfg.ground - 26, w: 14, h: 26,
       timer: 0, facing: 1, bob: 0, speech: 0, entering: true,
+      photoTimer: 5 + Math.random() * 7, photoPose: 0,
     };
   }
   const helper = game.helper;
   helper.y = boss.cfg.ground - helper.h;
   helper.bob += dt;
   helper.speech = Math.max(0, helper.speech - dt);
+  helper.photoPose = Math.max(0, helper.photoPose - dt);
+  if (!helper.entering && !['intro', 'enter', 'returning', 'dying'].includes(boss.state)) {
+    helper.photoTimer -= dt;
+    if (helper.photoTimer <= 0) {
+      helper.photoTimer += 5 + Math.random() * 7;
+      helper.photoPose = 1;
+    }
+  }
   const target = clamp(game.player.x + 80, 24, game.level.width - 40);
   const destination = clamp(target, boss.cfg.arenaLeft + 6, boss.cfg.arenaRight - 22);
-  helper.facing = destination < helper.x ? -1 : 1;
-  helper.x = approach(helper.x, destination, 105 * dt);
+  if (helper.photoPose > 0) {
+    helper.facing = boss.x + boss.w / 2 < helper.x + helper.w / 2 ? -1 : 1;
+  } else {
+    helper.facing = destination < helper.x ? -1 : 1;
+    helper.x = approach(helper.x, destination, 105 * dt);
+  }
   if (helper.entering) {
     if (helper.x < Math.max(boss.cfg.arenaLeft + 6, game.camera + 16)) return;
     helper.entering = false;
