@@ -255,11 +255,13 @@ function sparks(game, x, y, color, count) {
   }
 }
 
+const SCORE_PER_LIFE = 150;
+
 function addScore(game, points, type) {
-  const before = Math.floor(game.score / 100);
+  const before = Math.floor(game.score / SCORE_PER_LIFE);
   game.score += points;
   game.stats.scoreByType[type] += points;
-  game.lives += Math.floor(game.score / 100) - before;
+  game.lives += Math.floor(game.score / SCORE_PER_LIFE) - before;
 }
 
 function damageTarget(game, target, amount, flash) {
@@ -965,7 +967,7 @@ function updateHelper(game, dt) {
     y: helper.y - 20,
     w: 22, h: 22,
     type: heal ? undefined : 'ammo',
-    amount: 2,
+    amount: 1,
     taken: false,
     gift: true,
     giftVx: Math.sign(game.player.x - helper.x) * 55,

@@ -11,8 +11,8 @@ export const PLAYER = {
 
 export const CHARACTERS = {
   minister: { name: '大老师', maxHealth: 8, ammoMultiplier: 1, pickupMultiplier: 1, infiniteGrenades: false },
-  manager: { name: '张经理', maxHealth: 5, ammoMultiplier: 2, pickupMultiplier: 2, infiniteGrenades: false },
-  ma: { name: '马经理', maxHealth: 5, ammoMultiplier: 1, pickupMultiplier: 1, infiniteGrenades: true },
+  manager: { name: '张经理', maxHealth: 4, ammoMultiplier: 2, pickupMultiplier: 2, infiniteGrenades: false },
+  ma: { name: '马经理', maxHealth: 4, ammoMultiplier: 1, pickupMultiplier: 1, infiniteGrenades: true },
 };
 
 // 射程 = speed × lifetime，全部拉到 675px 以上，超过整屏（VIEW.width = 640）。
@@ -99,7 +99,7 @@ const flyer = (c, x, y, minX, maxX) => c.enemies.push({ type: 'flyer', x, y, min
 // 高处的飞怪只在玩家上到高处后主动攻击，地面路线仍然轻松。
 const upperFlyer = (c, x, y, minX, maxX) => c.enemies.push({ type: 'flyer', x, y, minX, maxX, upperOnly: true });
 
-const health = (c, x, y, amount = 2) => c.supplies.push({ x, y, amount });
+const health = (c, x, y, amount = 1) => c.supplies.push({ x, y, amount });
 const weapon = (c, x, y, type) => c.supplies.push({ x, y, type });
 const grenades = (c, x, y, amount = 2) => c.supplies.push({ x, y, type: 'grenade', amount });
 const hazard = (c, x, w, y, kind, h = 14) => c.hazards.push({ x, y, w, h, kind, damage: 1 });
