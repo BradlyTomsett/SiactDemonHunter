@@ -3,16 +3,22 @@ export const GROUND = 286;
 
 export const PLAYER = {
   width: 17, height: 27, speed: 188, acceleration: 1650,
-  gravity: 1080, jumpSpeed: 440, maxFallSpeed: 560,
+  gravity: 1080, jumpSpeed: 482, maxFallSpeed: 560,
   coyoteTime: 0.10, jumpBuffer: 0.13,
   maxHealth: 5, lives: 3, invincibleTime: 1.15, respawnInvincible: 1.8,
   knockbackSpeed: 145, knockbackTime: 0.16,
 };
 
+export const CHARACTERS = {
+  minister: { name: '大老师', maxHealth: 8, ammoMultiplier: 1, infiniteGrenades: false },
+  manager: { name: '张经理', maxHealth: 5, ammoMultiplier: 2, infiniteGrenades: false },
+  ma: { name: '马经理', maxHealth: 5, ammoMultiplier: 1, infiniteGrenades: true },
+};
+
 // 射程 = speed × lifetime，全部拉到 675px 以上，超过整屏（VIEW.width = 640）。
 export const WEAPONS = {
   basic: { name: '普通枪', ammo: Infinity, interval: 0.16, speed: 478, lifetime: 1.42, damage: 1, size: 4, color: '#ffb52e' },
-  spread: { name: '散射枪', ammo: 40, interval: 0.135, speed: 520, lifetime: 1.3, damage: 1, size: 5, spread: 0.19, color: '#ff558e' },
+  spread: { name: '霰弹枪', ammo: 40, interval: 0.135, speed: 520, lifetime: 1.3, damage: 1, size: 5, spread: 0.35, pellets: 5, color: '#ff558e' },
   pierce: { name: '穿透枪', ammo: 32, interval: 0.12, speed: 680, lifetime: 1, damage: 2, size: 5, pierce: 3, color: '#00d7f5' },
   rapid: { name: '疾射枪', ammo: 98, interval: 0.064, speed: 630, lifetime: 1.08, damage: 1, size: 4, color: '#8aff43' },
   heavy: { name: '重击枪', ammo: 18, interval: 0.14, speed: 475, lifetime: 1.43, damage: 4, size: 9, color: '#ad60ff' },
@@ -53,6 +59,8 @@ export const DROPPINGS = {
   edge: 2,
 };
 
+export const FOOD_TYPES = ['一碗面', '米饭', '汉堡', '烤肉串', '啤酒', '冰激凌', '火锅', '饺子', '包子', '卷饼'];
+
 function createChapter(id, name, width, subtitle) {
   return {
     id, name, width, subtitle,
@@ -76,6 +84,8 @@ const shelf = (c, x, y, w) => c.platforms.push({ x, y, w, h: 10, kind: 'shelf', 
 const patrol = (c, x, minX, maxX) => c.enemies.push({ type: 'patrol', x, y: GROUND, minX, maxX });
 const gunner = (c, x) => c.enemies.push({ type: 'gunner', x, y: GROUND });
 const flyer = (c, x, y, minX, maxX) => c.enemies.push({ type: 'flyer', x, y, minX, maxX });
+// 高处的飞怪只在玩家上到高处后主动攻击，地面路线仍然轻松。
+const upperFlyer = (c, x, y, minX, maxX) => c.enemies.push({ type: 'flyer', x, y, minX, maxX, upperOnly: true });
 
 const health = (c, x, y, amount = 2) => c.supplies.push({ x, y, amount });
 const weapon = (c, x, y, type) => c.supplies.push({ x, y, type });
@@ -97,6 +107,8 @@ stand(ch1, 591, 267, 110);
 books(ch1, 900, 230, 70, 20);
 plank(ch1, 980, 196, 90);
 desk(ch1, 1126, 1174);
+plank(ch1, 1300, 218, 170);
+shelf(ch1, 1470, 158, 160);
 decorate(ch1, 558, 267, 'monitor');
 decorate(ch1, 1175, 286, 'cup');
 patrol(ch1, 760, 700, 850);
@@ -106,14 +118,15 @@ health(ch1, 307, 235);
 weapon(ch1, 715, 251, 'spread');
 grenades(ch1, 1010, 180);
 health(ch1, 1350, 270);
+grenades(ch1, 1535, 142);
 weapon(ch1, 1900, 270, 'rapid');
 cp(ch1, 120, 262); cp(ch1, 560); cp(ch1, 1150); cp(ch1, 1500); cp(ch1, 1900);
-hint(ch1, 0, '摇杆移动与瞄准，红黄警示区会伤人');
+hint(ch1, 0, '摇杆移动与瞄准，跳过地面障碍');
 hint(ch1, 240, '跳上书本，再越过桌缝');
 hint(ch1, 700, '前方有巡逻怪，按住开火可以连发');
-hint(ch1, 1126, '高处的平台能省一段路');
+hint(ch1, 1126, '跳上悬空文件，往高处寻找补给');
 hint(ch1, 1200, '面包屑可以开枪打掉');
-hint(ch1, 1520, '红色区域会伤人，跳过去');
+hint(ch1, 1520, '小心地面障碍，跳过去或射击清除');
 
 // ── 2/9 书堆迷宫：纵向爬升 + 射击怪 ────────────────────────────────────────
 const ch2 = createChapter('ch2', '第一关 · 2/9 书堆迷宫', 3300, '堆叠的文件与书本');
@@ -151,7 +164,7 @@ hint(ch2, 0, '书堆可以一路踩上去，高处的补给更好');
 hint(ch2, 300, '淡色横板可以从下方穿过去');
 hint(ch2, 1000, '前方有射击怪，别站着不动');
 hint(ch2, 1500, '爬得越高，弹药越强');
-hint(ch2, 2100, '前方是 6 狗，经过旗帜后准备战斗');
+hint(ch2, 2100, '前方是 6 狗，整理装备准备战斗');
 hint(ch2, 2600, '击败 6 狗才能离开，小心从天上掉落的东西');
 
 // ── 3/9 线缆区：放电陷阱 + 飞怪 + 断崖 ────────────────────────────────────
@@ -198,6 +211,8 @@ desk(ch4, 450, 710);
 desk(ch4, 1260, 430);
 desk(ch4, 1790, 390);
 desk(ch4, 2280, 520);
+plank(ch4, 470, 218, 165);
+shelf(ch4, 650, 158, 170);
 books(ch4, 880, 240, 60, 46);
 books(ch4, 940, 200, 60, 40);
 shelf(ch4, 950, 176, 100);
@@ -221,6 +236,7 @@ hazard(ch4, 1890, 90, GROUND - 14, 'spill');
 hazard(ch4, 2040, 50, GROUND - 14, 'crumb');
 weapon(ch4, 1000, 160, 'rapid');
 health(ch4, 1300, 270);
+grenades(ch4, 725, 142);
 grenades(ch4, 1650, 270);
 health(ch4, 2350, 270);
 weapon(ch4, 2750, 270, 'heavy');
@@ -286,12 +302,15 @@ hint(ch6, 280, '它冲过来时跳起来躲开，落地的震波要跳过');
 // 新增三个可通行场景：地面、显示器顶部与打印机。
 const floor = createChapter('floor', '第一关 · 6/9 办公室地面', 2100, '穿越工位与绿植');
 for (const [x,w] of [[0,620],[690,550],[1310,790]]) floor.platforms.push({ x, y: GROUND, w, h: 22, kind: 'floor' });
+plank(floor, 40, 218, 185); shelf(floor, 240, 158, 160);
 crate(floor, 350, 256, 52); crate(floor, 960, 256, 50);
 patrol(floor, 820, 740, 900); gunner(floor, 1650); flyer(floor, 1500, 205, 1400, 1620);
+upperFlyer(floor, 490, 130, 460, 535);
 hazard(floor, 800, 60, GROUND - 14, 'cable');
 health(floor, 580, 270); grenades(floor, 1370, 270); weapon(floor, 1820, 270, 'rapid');
+health(floor, 310, 142);
 cp(floor, 150); cp(floor, 750); cp(floor, 1350); cp(floor, 1850);
-hint(floor, 0, '来到办公室地面，越过桌腿和线缆'); hint(floor, 760, '警示条纹的区域会造成伤害');
+hint(floor, 0, '来到办公室地面，越过桌腿和线缆'); hint(floor, 760, '电缆冒出火花时会造成伤害');
 
 const monitor = createChapter('monitor', '第一关 · 7/9 显示器顶部', 1900, '攀过屏幕与线缆');
 for (const [x,w] of [[0,520],[600,540],[1220,680]]) monitor.platforms.push({ x, y: GROUND, w, h: 22, kind: 'monitorTop' });
@@ -304,12 +323,15 @@ hint(monitor, 0, '沿显示器顶部前进，小心屏幕间的空隙');
 
 const printer = createChapter('printer', '第一关 · 8/9 打印机', 1900, '穿越纸张与设备');
 for (const [x,w] of [[0,610],[690,530],[1300,600]]) printer.platforms.push({ x, y: GROUND, w, h: 22, kind: 'printerTop' });
+plank(printer, 50, 218, 180); shelf(printer, 245, 158, 160);
 books(printer, 380, 258, 60, 28); crate(printer, 900, 256, 48); shelf(printer, 1500, 220, 100);
 gunner(printer, 850); patrol(printer, 1650, 1530, 1770); flyer(printer, 1100, 200, 1000, 1200);
+upperFlyer(printer, 490, 130, 460, 535);
 hazard(printer, 1450, 55, GROUND - 14, 'crumb');
 health(printer, 700, 270); grenades(printer, 1330, 270); weapon(printer, 1800, 270, 'heavy');
+grenades(printer, 315, 142);
 cp(printer, 120); cp(printer, 740); cp(printer, 1350); cp(printer, 1740);
-hint(printer, 0, '踏上打印机顶盖，越过纸张和出纸口');
+hint(printer, 0, '沿纸张向上可获取补给，小心高处飞怪');
 
 const CHAPTERS = [ch1, ch2, ch3, ch4, ch5, floor, monitor, printer, ch6];
 const BOSS_HEALTH = [45, 60, 63, 66, 72, 75, 78, 84, 90];
@@ -394,6 +416,26 @@ function mergeChapters(id, name, subtitle, parts) {
   const last = parts[parts.length - 1];
   merged.exit = { ...last.exit, x: last.exit.x + (offset - last.width) };
   merged.boss = merged.bosses[0];
+  // 每段从安全的地面位置中均匀选出 40 个，避开缺口、障碍和首领战场。
+  const candidates = [];
+  const groundKinds = new Set(['desk', 'floor', 'monitorTop', 'printerTop']);
+  for (let x = 90; x < merged.width - 90; x += 35) {
+    const area = { x, y: GROUND - 28, w: 18, h: 28 };
+    const overlaps = object => area.x < object.x + object.w && area.x + area.w > object.x
+      && area.y < object.y + object.h && area.y + area.h > object.y;
+    const supported = merged.platforms.some(platform => groundKinds.has(platform.kind)
+      && platform.x <= x - 8 && platform.x + platform.w >= x + 26);
+    const blocked = merged.platforms.some(platform => !platform.oneway && overlaps(platform))
+      || merged.hazards.some(overlaps)
+      || merged.supplies.some(item => Math.abs(item.x - x) < 30 && Math.abs(item.y - GROUND) < 45)
+      || merged.bosses.some(boss => x >= boss.arenaLeft - 40 && x <= boss.arenaRight + 40);
+    if (supported && !blocked) candidates.push(x);
+  }
+  if (candidates.length < 40) throw new Error(`食品位置不足：${name}`);
+  merged.food = Array.from({ length: 40 }, (_, index) => ({
+    x: candidates[Math.floor((index + 0.5) * candidates.length / 40)],
+    y: GROUND - 22, w: 18, h: 20, type: FOOD_TYPES[index % FOOD_TYPES.length],
+  }));
   return merged;
 }
 

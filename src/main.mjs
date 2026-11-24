@@ -1,6 +1,6 @@
 import { createGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
-import { LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
+import { CHARACTERS, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
 
 const byId = id => document.getElementById(id);
@@ -14,6 +14,7 @@ const controls = byId("controls");
 const pauseButton = byId("pause");
 const overlay = byId("overlay");
 const rewards = byId("rewards");
+const characterSelect = byId("character-select");
 const primary = byId("primary");
 const guide = byId("guide");
 const home = byId("home");
@@ -31,7 +32,9 @@ const portrait = window.matchMedia("(orientation: portrait)");
 const step = 1 / 120;
 
 let levelIndex = 0;
+let selectedCharacter = 'minister';
 let completedTime = 0;
+let levelStartScore = 0;
 let game = null;
 let screen = "title";
 let accumulator = 0;
@@ -44,7 +47,7 @@ let primaryAction = start;
 
 const input = createInput(controls, togglePause, () => screen === "playing");
 
-for (let i = 0; i < PLAYER.maxHealth; i++) {
+for (let i = 0; i < Math.max(...Object.values(CHARACTERS).map(character => character.maxHealth)); i++) {
   const heart = document.createElement("span");
   heart.className = "heart";
   heart.setAttribute("aria-hidden", "true");
@@ -78,6 +81,7 @@ function syncVisibility() {
 
 function panel(next, title, message, label, action) {
   rewards.hidden = true;
+  characterSelect.hidden = next !== 'title';
   primary.hidden = false;
   byId("menu-title").textContent = title;
   byId("menu-message").textContent = message;
@@ -92,9 +96,10 @@ function panel(next, title, message, label, action) {
   primary.focus({ preventScroll: true });
 }
 
-function loadLevel(index, remainingLives, carry) {
+function loadLevel(index, remainingLives, carry, score = 0) {
   levelIndex = Math.max(0, Math.min(LEVELS.length - 1, index));
-  game = createGame(LEVELS[levelIndex], { lives: remainingLives, carry });
+  levelStartScore = score;
+  game = createGame(LEVELS[levelIndex], { lives: remainingLives, carry, score, characterId: selectedCharacter });
   previousRespawns = game.respawns;
   previousHealth = -1;
   previousLives = -1;
@@ -107,7 +112,7 @@ function showTitle() {
   loadLevel(0, PLAYER.lives);
   panel(
     "title",
-    "逃离办公室",
+    "公司打狗",
     "你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。",
     "开始游戏",
     start,
@@ -118,6 +123,17 @@ function start() {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   setScreen("playing");
 }
+
+characterSelect.addEventListener('click', event => {
+  const button = event.target.closest('[data-character]');
+  const characterId = button?.dataset.character;
+  if (screen !== 'title' || !CHARACTERS[characterId]) return;
+  selectedCharacter = characterId;
+  for (const option of characterSelect.querySelectorAll('[data-character]')) {
+    option.setAttribute('aria-pressed', String(option.dataset.character === characterId));
+  }
+  loadLevel(0, PLAYER.lives);
+});
 
 function pause(message = "点击继续，回到当前关卡。") {
   if (screen !== "playing") return;
@@ -152,10 +168,15 @@ function showNotice(message) {
 function updateHud() {
   const hp = game.player.health;
   const weapon = WEAPONS[game.player.weapon];
-  byId('equipment').textContent = `${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  炸弹 ${game.player.grenades}/6${game.player.boost > 0 ? ` 火力提升 ${Math.ceil(game.player.boost)}秒` : ''}`;
+  byId('score').textContent = `积分 ${game.score}`;
+  const grenades = game.player.grenades === Infinity ? '∞' : `${game.player.grenades}/6`;
+  byId('equipment').textContent = `${CHARACTERS[game.characterId].name} · ${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  炸弹 ${grenades}${game.player.boost > 0 ? ` 火力提升 ${Math.ceil(game.player.boost)}秒` : ''}`;
   if (hp !== previousHealth) {
-    health.setAttribute("aria-label", `生命 ${hp} / ${PLAYER.maxHealth}`);
-    for (const [i, heart] of [...health.children].entries()) heart.classList.toggle("empty", i >= hp);
+    health.setAttribute("aria-label", `生命 ${hp} / ${game.player.maxHealth}`);
+    for (const [i, heart] of [...health.children].entries()) {
+      heart.hidden = i >= game.player.maxHealth;
+      heart.classList.toggle("empty", i >= hp);
+    }
     previousHealth = hp;
   }
   if (game.respawns !== previousRespawns) {
@@ -187,7 +208,7 @@ function finish() {
       `${game.reason}从本段开头重新开始，命数恢复。`,
       "重试本段",
       () => {
-        loadLevel(levelIndex, PLAYER.lives);
+        loadLevel(levelIndex, PLAYER.lives, undefined, levelStartScore);
         start();
       },
     );
@@ -203,14 +224,14 @@ function finish() {
       "下一段",
       () => {
         completedTime += game.elapsed;
-        loadLevel(levelIndex + 1, nextLives, game.player);
+        loadLevel(levelIndex + 1, nextLives, game.player, game.score);
         start();
       },
     );
     primary.hidden = true;
     rewards.hidden = false;
     const ammoButton = rewards.querySelector('[data-reward="ammo"]');
-    ammoButton.textContent = game.player.weapon === 'basic' ? '获得满弹散射枪' : '补满当前武器弹药';
+    ammoButton.querySelector('.ammo-reward-label').textContent = game.player.weapon === 'basic' ? '获得满弹霰弹枪' : '补满当前武器弹药';
   } else {
     panel(
       "cleared",
@@ -235,10 +256,10 @@ rewards.addEventListener('click', event => {
   if (choice === 'boost') carry.boost = 30;
   if (choice === 'ammo') {
     if (carry.weapon === 'basic') carry.weapon = 'spread';
-    carry.ammo = WEAPONS[carry.weapon].ammo;
+    carry.ammo = WEAPONS[carry.weapon].ammo * CHARACTERS[selectedCharacter].ammoMultiplier;
   }
   completedTime += game.elapsed;
-  loadLevel(levelIndex + 1, nextLives, carry);
+  loadLevel(levelIndex + 1, nextLives, carry, game.score);
   start();
 });
 
@@ -266,8 +287,8 @@ function confirmInstallRequest() {
   installRequested = true;
   install.textContent = '安装帮助';
   showInstallStatus(isAndroid
-    ? '已确认安装，请等待 Chrome 处理。在手机主屏幕上滑，搜索“逃离办公室”。找到图标后，长按并选择“添加到主屏幕”。若找不到，回到 Chrome 菜单检查安装选项。'
-    : '安装请求已提交，请在系统的应用列表里查找“逃离办公室”。');
+    ? '已确认安装，请等待 Chrome 处理。在手机主屏幕上滑，搜索“公司打狗”。找到图标后，长按并选择“添加到主屏幕”。若找不到，回到 Chrome 菜单检查安装选项。'
+    : '安装请求已提交，请在系统的应用列表里查找“公司打狗”。');
 }
 
 function showInstallHelp() {
@@ -276,7 +297,7 @@ function showInstallHelp() {
     return;
   }
   showInstallStatus(isAndroid
-    ? '请打开 Chrome 右上角的 ⋮ 菜单，选择“安装应用”或“安装并创建快捷方式”。如果已经安装，请在手机的应用列表里搜索“逃离办公室”。'
+    ? '请打开 Chrome 右上角的 ⋮ 菜单，选择“安装应用”或“安装并创建快捷方式”。如果已经安装，请在手机的应用列表里搜索“公司打狗”。'
     : '请打开浏览器菜单，选择“安装应用”或“添加到主屏幕”。');
 }
 

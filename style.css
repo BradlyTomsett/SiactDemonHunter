@@ -57,6 +57,7 @@ canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
   border-radius: 12px;
 }
 .level-name { font-size: 14px; font-weight: 800; }
+.score { font-size: 14px; font-weight: 800; color: #80521a; }
 #equipment { font-size: 13px; color: #28556a; font-weight: 700; }
 .health { display: flex; gap: 4px; }
 .heart {
@@ -213,12 +214,33 @@ h1 {
   color: #154846;
 }
 #menu-message { margin: 0; color: #38565b; font-size: clamp(14px, 2vw, 17px); line-height: 1.5; }
-.menu-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: clamp(11px, 3vmin, 20px); }
-.rewards { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.rewards button {
-  min-height: 44px; padding: 7px 12px; border: 1px solid #79b9ac;
-  border-radius: 12px; background: #e8faf2; font-weight: 750;
+.character-select { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.character-card {
+  display: flex; align-items: center; gap: 6px; min-height: 56px; padding: 5px;
+  text-align: left; border: 2px solid #bfd8cd; border-radius: 10px; background: #f7fbf6;
 }
+.character-card[aria-pressed="true"] { border-color: #008674; background: #dbf5ea; box-shadow: 0 0 0 1px #008674; }
+.character-card strong, .character-card small { display: block; }
+.character-card strong { font-size: 13px; }
+.character-card small { margin-top: 2px; font-size: 11px; line-height: 1.2; }
+.character-icon { display: grid; place-items: center; flex: none; width: 31px; height: 37px; border-radius: 8px; font-size: 21px; }
+.character-icon.minister { background: #d1e9ff; }
+.character-icon.manager { background: repeating-conic-gradient(#edf0ee 0% 25%, #969c9b 0% 50%) 0 0 / 10px 10px; }
+.character-icon.ma { background: #e3e7e8; }
+.menu-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: clamp(11px, 3vmin, 20px); }
+.rewards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.rewards button {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  gap: 6px; min-height: 98px; padding: 8px 5px; border: 1px solid #79b9ac;
+  border-radius: 12px; background: #e8faf2; font-weight: 750; font-size: 13px;
+}
+.reward-icon {
+  display: grid; place-items: center; width: 44px; height: 44px; flex: none;
+  border-radius: 12px; font-size: 28px; line-height: 1; font-weight: 800;
+}
+.life-icon { color: #c93254; background: #ffe2e8; }
+.boost-icon { color: #8b5400; background: #ffedb7; }
+.ammo-icon { color: #185c79; background: #d4eff9; }
 .primary, .secondary {
   min-height: 44px;
   padding: 7px 16px;

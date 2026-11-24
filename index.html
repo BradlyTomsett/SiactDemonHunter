@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#eef9f5">
-  <title>逃离办公室</title>
+  <title>公司打狗</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" type="image/png" href="./icons/icon-192.png">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
@@ -13,12 +13,13 @@
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-  <main class="game" aria-label="逃离办公室">
+  <main class="game" aria-label="公司打狗">
     <canvas id="world" width="1920" height="1080" aria-label="办公室桌面关卡"></canvas>
 
     <header class="hud" id="hud" hidden>
       <div class="hud-left">
         <span class="level-name" id="level-name"></span>
+        <span class="score" id="score" aria-label="积分">积分 0</span>
         <span class="health" id="health" aria-label="生命"></span>
         <span id="equipment"></span>
         <span class="lives" id="lives" aria-label="剩余命数"></span>
@@ -42,12 +43,26 @@
     <section id="overlay" class="overlay" aria-labelledby="menu-title">
       <div class="panel">
         <span class="chapter" id="menu-chapter">第一关 · 桌面醒来</span>
-        <h1 id="menu-title">逃离办公室</h1>
+        <h1 id="menu-title">公司打狗</h1>
         <p id="menu-message">你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。</p>
+        <div id="character-select" class="character-select" role="group" aria-label="选择角色">
+          <button class="character-card" type="button" data-character="minister" aria-pressed="true">
+            <span class="character-icon minister" aria-hidden="true">🧢</span>
+            <span><strong>大老师</strong><small>生命上限 8 点</small></span>
+          </button>
+          <button class="character-card" type="button" data-character="manager" aria-pressed="false">
+            <span class="character-icon manager" aria-hidden="true">🍲</span>
+            <span><strong>张经理</strong><small>拾取武器弹药翻倍</small></span>
+          </button>
+          <button class="character-card" type="button" data-character="ma" aria-pressed="false">
+            <span class="character-icon ma" aria-hidden="true">🍺</span>
+            <span><strong>马经理</strong><small>手榴弹无限</small></span>
+          </button>
+        </div>
         <div id="rewards" class="rewards" hidden>
-          <button type="button" data-reward="life">增加 1 条命</button>
-          <button type="button" data-reward="boost">火力提升 50% · 30 秒</button>
-          <button type="button" data-reward="ammo">补满弹药</button>
+          <button type="button" data-reward="life"><span class="reward-icon life-icon" aria-hidden="true">♥</span><span>增加 1 条命</span></button>
+          <button type="button" data-reward="boost"><span class="reward-icon boost-icon" aria-hidden="true">⚡</span><span>火力提升 50%<br>持续 30 秒</span></button>
+          <button type="button" data-reward="ammo"><span class="reward-icon ammo-icon" aria-hidden="true">▥</span><span class="ammo-reward-label">补满弹药</span></button>
         </div>
         <div class="menu-actions">
           <button class="primary" id="primary" type="button">开始游戏</button>

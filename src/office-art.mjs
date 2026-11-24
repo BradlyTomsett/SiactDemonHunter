@@ -33,6 +33,19 @@ export function createOfficeArt(ctx, { round, oval, line }) {
 
   function background(camera, level) {
     fill(0, 0, W, H, gradient(0, H, '#edfef8', '#c0e8dd', '#88cebd', '#54a9ab'));
+    // 远处的巨大显示器和隔板只作为背景，留出清楚的跳跃轮廓。
+    ctx.save();
+    ctx.globalAlpha = 0.28;
+    const towers = -(camera * 0.09 % 420);
+    for (let x = towers - 420; x < W; x += 420) {
+      round(x + 52, 16, 180, 122, 8, '#4d6979');
+      round(x + 59, 23, 166, 108, 4, '#c4e1de');
+      fill(x + 75, 39, 100, 3, '#78a7a6');
+      fill(x + 75, 49, 124, 3, '#90b7b0');
+      fill(x + 75, 59, 82, 3, '#90b7b0');
+      fill(x + 134, 138, 16, 37, '#6d8687');
+    }
+    ctx.restore();
     const ceiling = -(camera * .12 % 180);
     for (let x = ceiling - 180; x < W + 180; x += 180) {
       line(x, 0, x + 45, 70, '#b4bec2', 1);
@@ -40,6 +53,18 @@ export function createOfficeArt(ctx, { round, oval, line }) {
       fill(x + 34, 30, 88, 4, '#faf9e9');
     }
     line(0, 67, W, 67, '#a8b4b9', 2);
+
+    // 上方的叶片随视差缓慢移动，让玩家感到自己身处大型办公家具之间。
+    ctx.save();
+    ctx.globalAlpha = 0.34;
+    const foliage = -(camera * 0.16 % 370);
+    for (let x = foliage - 370; x < W; x += 370) {
+      line(x + 324, 4, x + 292, 80, '#44755c', 3);
+      oval(x + 304, 37, 28, 9, '#4b946b');
+      oval(x + 280, 68, 25, 8, '#70aa78');
+      oval(x + 333, 55, 23, 8, '#559f72');
+    }
+    ctx.restore();
 
     const partition = -(camera * .25 % 260);
     for (let x = partition - 260; x < W; x += 260) {

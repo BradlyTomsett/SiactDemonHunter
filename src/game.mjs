@@ -1,4 +1,4 @@
-import { DROPPINGS, ENEMIES, GRENADE, PLAYER, VIEW, WEAPONS } from "./levels.mjs";
+import { CHARACTERS, DROPPINGS, ENEMIES, GRENADE, PLAYER, VIEW, WEAPONS } from "./levels.mjs";
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const approach = (start, end, step) => start + clamp(end - start, -step, step);
@@ -11,6 +11,8 @@ export function createGame(level, options = {}) {
     lives: options.lives ?? PLAYER.lives, respawns: 0, respawnReason: "", checkpoint: -1,
     enemies: [], supplies: [], bullets: [], enemyShots: [], sparks: [], grenades: [], waves: [],
     bosses: [], boss: null, clearedBosses: 0,
+    score: options.score ?? 0, collectedFood: new Set(), food: [],
+    characterId: CHARACTERS[options.characterId] ? options.characterId : 'minister',
   };
   resetLevel(game, -1, options.carry);
   return game;
@@ -34,16 +36,21 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   const point = checkpointIndex >= 0 ? level.checkpoints[checkpointIndex] : null;
   const spawnX = point ? point.x : level.spawn.x;
   const spawnY = point ? point.y : level.spawn.y;
+  const character = CHARACTERS[game.characterId];
   game.player = {
     x: spawnX, y: spawnY - PLAYER.height,
     w: PLAYER.width, h: PLAYER.height, vx: 0, vy: 0, facing: 1, aimX: 1, aimY: 0,
     grounded: false, coyote: 0, jumpBuffer: 0, cooldown: 0, flash: 0,
-    health: keep?.health ?? PLAYER.maxHealth, invincible: 0, knockback: 0,
+    characterId: game.characterId, maxHealth: character.maxHealth,
+    health: Math.min(keep?.health ?? character.maxHealth, character.maxHealth), invincible: 0, knockback: 0,
     weapon: keep?.weapon ?? 'basic',
     ammo: keep?.ammo ?? Infinity,
-    grenades: keep?.grenades ?? 2, boost: keep?.boost ?? 0,
+    grenades: character.infiniteGrenades ? Infinity : (keep?.grenades ?? 2), boost: keep?.boost ?? 0,
   };
   game.enemies = level.enemies.map(makeEnemy);
+  game.food = (level.food ?? []).map((item, index) => ({
+    ...item, index, taken: game.collectedFood.has(index),
+  }));
   game.hazards = level.hazards.map(hazard => ({ ...hazard, destroyed: false }));
   game.supplies = level.supplies.map(supply => ({
     ...supply, x: supply.x - 4, y: supply.y - 8, w: 22, h: 22, taken: false,
@@ -94,6 +101,9 @@ function die(game, reason) {
     game.respawns += 1;
     game.respawnReason = reason;
     resetLevel(game, index);
+    game.player.respawnTargetY = game.player.y;
+    game.player.y = -game.player.h;
+    game.player.respawning = true;
     game.player.invincible = PLAYER.respawnInvincible;
     return true;
   }
@@ -169,10 +179,21 @@ function sparks(game, x, y, color, count) {
   }
 }
 
+function addScore(game, points) {
+  const before = Math.floor(game.score / 100);
+  game.score += points;
+  game.lives += Math.floor(game.score / 100) - before;
+}
+
 function damageTarget(game, target, amount, flash) {
+  if (target.health <= 0) return;
   target.health = Math.max(0, target.health - amount);
   target.flash = flash;
-  if (target !== game.boss || target.health > 0) return;
+  if (target.health > 0) return;
+  if (target === game.boss) addScore(game, 30);
+  else if (game.enemies.includes(target)) addScore(game, 5);
+  else if (game.waves.includes(target)) addScore(game, 1);
+  if (target !== game.boss) return;
 
   // 致命一击立即保存进度，倒地动画结束后才开放通道。
   game.clearedBosses += 1;
@@ -191,7 +212,10 @@ function stepShots(game, fire, dt) {
     const size = weapon.size;
     const x = p.x + p.w / 2 + p.aimX * 12 - size / 2;
     const y = p.y + p.h / 2 + p.aimY * 12 - size / 2;
-    const angles = weapon.spread ? [-weapon.spread, 0, weapon.spread] : [0];
+    const angles = weapon.pellets
+      ? Array.from({ length: weapon.pellets }, (_, index) =>
+        -weapon.spread + (index + Math.random()) * 2 * weapon.spread / weapon.pellets)
+      : [0];
     for (const angle of angles) {
       const vx = (p.aimX * Math.cos(angle) - p.aimY * Math.sin(angle)) * weapon.speed;
       const vy = (p.aimX * Math.sin(angle) + p.aimY * Math.cos(angle)) * weapon.speed;
@@ -215,7 +239,7 @@ function stepShots(game, fire, dt) {
     const crumb = game.hazards.find(h => h.kind === 'crumb' && !h.destroyed && overlaps(h, sweep));
     if (crumb) { crumb.destroyed = true; sparks(game, crumb.x + crumb.w / 2, crumb.y, '#c79555', 7); return false; }
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
-    if (dropping) { dropping.destroyed = true; sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
+    if (dropping) { dropping.destroyed = true; addScore(game, 1); sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < VIEW.height;
     damageTarget(game, enemy, bullet.damage, 0.12);
@@ -264,11 +288,15 @@ function stepEnemies(game, dt) {
         enemy.direction *= -1;
       }
       const dx = Math.abs(p.x + p.w / 2 - (enemy.x + enemy.w / 2));
-      const diving = dx < 120 && Math.abs(p.y - enemy.y) < 140;
+      const diving = !enemy.upperOnly && dx < 120 && Math.abs(p.y - enemy.y) < 140;
       const target = diving ? p.y - 6 : enemy.baseY + Math.sin(enemy.phase) * type.amplitude;
       enemy.y = approach(enemy.y, target, 150 * dt);
     }
 
+    if (enemy.upperOnly && p.y + p.h > 220) {
+      enemy.tell = 0;
+      continue;
+    }
     if (enemy.tell > 0) {
       enemy.tell = Math.max(0, enemy.tell - dt);
       if (enemy.tell === 0) fireEnemyShot(game, enemy);
@@ -303,7 +331,7 @@ function stepEnemies(game, dt) {
 function stepGrenades(game, input, dt) {
   const p = game.player;
   if (input.grenade && p.grenades > 0) {
-    p.grenades--;
+    if (p.grenades !== Infinity) p.grenades--;
     game.grenades.push({ x: p.x + p.w / 2 - 5, y: p.y + 8, w: 10, h: 10, vx: p.facing * 210, vy: -250, fuse: GRENADE.fuse, spin: 0 });
   }
   game.grenades = game.grenades.filter(g => {
@@ -335,7 +363,9 @@ function stepGrenades(game, input, dt) {
         damageTarget(game, target, GRENADE.damage, 0.15);
       }
     }
-    for (const drop of game.droppings) if (inBlast(drop)) drop.destroyed = true;
+    for (const drop of game.droppings) {
+      if (!drop.destroyed && inBlast(drop)) { drop.destroyed = true; addScore(game, 1); }
+    }
     game.blasts.push({ x, y, radius, life: 0.36 });
     sparks(game, x, y, '#ff9e24', 16);
     return false;
@@ -534,6 +564,14 @@ export function stepGame(game, input, dt) {
   if (game.status !== "playing") return;
   const p = game.player;
   game.elapsed += dt;
+  if (p.respawning) {
+    p.y = Math.min(p.respawnTargetY, p.y + 260 * dt);
+    if (p.y >= p.respawnTargetY) {
+      p.respawning = false;
+      p.grounded = true;
+    }
+    return;
+  }
   p.invincible = Math.max(0, p.invincible - dt);
   p.knockback = Math.max(0, p.knockback - dt);
   p.flash = Math.max(0, p.flash - dt);
@@ -568,13 +606,21 @@ export function stepGame(game, input, dt) {
       if (p.grenades >= 6) continue;
       p.grenades = Math.min(6, p.grenades + supply.amount);
     } else if (WEAPONS[supply.type]) {
-      p.weapon = supply.type; p.ammo = WEAPONS[supply.type].ammo;
+      p.weapon = supply.type; p.ammo = WEAPONS[supply.type].ammo * CHARACTERS[game.characterId].ammoMultiplier;
     } else {
-      if (p.health >= PLAYER.maxHealth) continue;
-      p.health = Math.min(PLAYER.maxHealth, p.health + supply.amount);
+      if (p.health >= p.maxHealth) continue;
+      p.health = Math.min(p.maxHealth, p.health + supply.amount);
     }
     supply.taken = true;
+    addScore(game, 1);
     sparks(game, supply.x + 7, supply.y + 7, "#89e0ae", 7);
+  }
+  for (const food of game.food) {
+    if (food.taken || !overlaps(p, food)) continue;
+    food.taken = true;
+    game.collectedFood.add(food.index);
+    addScore(game, 1);
+    sparks(game, food.x + 9, food.y + 10, "#ffd873", 5);
   }
   const gateOpen = game.bosses.every(boss => boss.state === 'defeated');
   if (gateOpen && game.status === "playing" && overlaps(p, game.level.exit)) game.status = "cleared";

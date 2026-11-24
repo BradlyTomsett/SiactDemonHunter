@@ -15,11 +15,11 @@ export function createRenderer(canvas) {
 
   function player(p, t) {
     ctx.save();
+    const character = p.characterId ?? 'minister';
     const stride = p.grounded && Math.abs(p.vx) > 20 ? Math.sin(t * 22) : 0;
     const tucked = p.grounded ? 0 : p.vy < 0 ? 2 : 1;
     ctx.translate(p.x + p.w / 2, p.y);
     ctx.scale(p.facing, 1);
-    if (p.invincible > 0 && Math.floor(p.invincible * 14) % 2) ctx.globalAlpha = .55;
     const leg = (x, gait, color) => {
       const foot = x + gait * 4;
       const ankle = 25 - tucked - Math.max(0, gait) * 1.5;
@@ -32,12 +32,20 @@ export function createRenderer(canvas) {
     leg(2.2, stride, '#4f6471');
     round(-7.6, 9, 4.7, 10, 1.5, '#283c47');
     round(-5.7, 9, 10.9, 10.5, 2.7, '#283846');
-    round(-4.6, 9.5, 8.5, 7.7, 2.2, '#fa8b33');
-    line(-3.1, 11, -2.8, 16, '#f8bd72', 1.1);
+    const shirt = character === 'manager' ? '#f5f5ee' : character === 'ma' ? '#c1c9ca' : '#fa8b33';
+    round(-4.6, 9.5, 8.5, 7.7, 2.2, shirt);
+    if (character === 'manager') {
+      for (const [x, y] of [[-4, 10], [0, 10], [-2, 13], [2, 13], [-4, 16], [0, 16]]) {
+        round(x, y, 2, 2, 0, '#252b30');
+      }
+    } else {
+      line(-3.1, 11, -2.8, 16, character === 'ma' ? '#e6ebea' : '#f8bd72', 1.1);
+    }
     round(-4.3, 15.6, 8.1, 3.3, 1, '#485a67');
     oval(.7, 6.3, 4.2, 4.7, '#dda47c');
-    round(-4.4, .5, 9.2, 5.2, 2.5, '#df9a46');
-    line(-3, 1.6, 2.5, 1.6, '#ffda8e', 1);
+    round(-4.4, .5, 9.2, 5.2, 2.5, character === 'minister' ? '#2376cc' : '#403d3b');
+    line(-3, 1.6, 2.5, 1.6, character === 'minister' ? '#90d0ff' : '#776e67', 1);
+    if (character === 'minister') round(2.5, 4, 5.5, 1.5, .5, '#175ba1');
     round(1.3, 4.5, 4.4, 2.4, 1, '#344652');
     oval(2.7, 7.8, 1.5, .8, '#f0b88b');
 
@@ -53,7 +61,76 @@ export function createRenderer(canvas) {
       oval(14.2, 0, 2.7, 1, '#fff4aa');
     }
     ctx.restore();
+    if (character === 'manager') {
+      round(-10.5, 14.5, 6.5, 4, 1.5, '#533930');
+      oval(-7.3, 14.5, 3.3, 1.2, '#f0b763');
+      line(-8, 11.5, -3, 5.5, '#e9c9a1', 0.8);
+      line(-7, 11.5, -2, 5.5, '#e9c9a1', 0.8);
+    } else if (character === 'ma') {
+      round(-10, 12.5, 4, 6, 1, '#d69a32');
+      round(-10, 12, 4, 1.5, .5, '#fff6d8');
+      line(-6, 14, -4.8, 16, '#a96b28', .8);
+    }
+    if (p.health === 1) {
+      ctx.save();
+      ctx.globalAlpha = 0.2 + 0.22 * (0.5 + 0.5 * Math.sin(t * 3));
+      round(-7, 0, 15, 27, 5, '#ff2020');
+      ctx.restore();
+    }
     ctx.restore();
+    if (p.invincible > 0 || p.respawning) {
+      const ripple = Math.sin(t * 5) * 0.8;
+      oval(p.x + p.w / 2, p.y + p.h / 2, 14 + ripple, 20 - ripple / 2, '#77e8ff30');
+      ctx.save();
+      ctx.strokeStyle = '#a9f7ffbb'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(p.x + p.w / 2, p.y + p.h / 2, 14 + ripple, 20 - ripple / 2, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function foodItem(food, t) {
+    const x = food.x + food.w / 2;
+    const y = food.y + 9 + Math.sin(t * 3 + food.index) * 1.2;
+    oval(x, y + 1, 13, 11, '#fff1bbcc');
+    if (food.type === '一碗面' || food.type === '米饭') {
+      round(x - 8, y, 16, 7, 3, '#f8f5e8');
+      oval(x, y, 7, 3, food.type === '一碗面' ? '#e8b856' : '#fffdf2');
+      if (food.type === '一碗面') line(x - 4, y - 1, x + 4, y + 1, '#a66035', 1);
+    } else if (food.type === '汉堡') {
+      oval(x, y - 3, 8, 4, '#e6a340');
+      round(x - 8, y, 16, 3, 1, '#69402b');
+      round(x - 8, y + 3, 16, 3, 1, '#e6a340');
+    } else if (food.type === '烤肉串') {
+      line(x - 7, y + 7, x + 7, y - 7, '#825a33', 1.5);
+      for (const offset of [-4, 0, 4]) round(x + offset - 2, y - offset - 2, 4, 4, 1, '#a34d2c');
+    } else if (food.type === '啤酒') {
+      round(x - 5, y - 6, 10, 13, 2, '#d89930');
+      round(x - 5, y - 7, 10, 4, 2, '#fff9e3');
+      line(x + 5, y - 3, x + 8, y + 3, '#a76825', 2);
+    } else if (food.type === '冰激凌') {
+      ctx.fillStyle = '#b77a43'; ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 9); ctx.closePath(); ctx.fill();
+      oval(x, y - 2, 6, 5, '#f195ae');
+    } else if (food.type === '火锅') {
+      round(x - 8, y - 1, 16, 8, 3, '#9a4535');
+      oval(x, y - 1, 7, 3, '#e7b35e');
+      oval(x - 3, y - 2, 2, 1, '#6f9d55');
+      oval(x + 3, y - 2, 2, 1, '#f4e4c5');
+    } else if (food.type === '饺子') {
+      oval(x, y + 1, 8, 5, '#fff6df');
+      line(x - 5, y - 1, x + 5, y - 1, '#caa979', 1);
+    } else if (food.type === '包子') {
+      oval(x, y, 7, 7, '#fff2d9');
+      line(x - 3, y - 3, x, y - 5, '#c7a985', 1);
+      line(x + 3, y - 3, x, y - 5, '#c7a985', 1);
+    } else if (food.type === '卷饼') {
+      round(x - 7, y - 4, 14, 8, 4, '#e3bd7a');
+      line(x - 3, y - 2, x - 3, y + 3, '#a77a43', 1);
+      line(x + 2, y - 2, x + 2, y + 3, '#a77a43', 1);
+    }
+    ctx.fillStyle = '#573d26'; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(food.type, x, y - 13);
   }
   // 台词气泡：20px 粗体（原来 10px），带描边、投影和小尾巴，明显突出
   function bubble(text,cx,baseY,fg,bg,border){
@@ -316,7 +393,6 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = 'bold 20px sans-serif';
       ctx.fillText('↑', x, y + 6);
     }
-    for(const [i,c] of game.level.checkpoints.entries()){line(c.x,c.y-26,c.x,c.y,'#d7e8d4',2);round(c.x,c.y-26,14,9,3,i<=game.checkpoint?'#72e5ad':'#678483');}
     if(game.bosses.every(boss=>boss.state==='defeated')){const e=game.level.exit;round(e.x-4,e.y-4,e.w+8,e.h+4,9,'#bbdbc4');round(e.x,e.y,e.w,e.h,7,'#416e68');ctx.fillStyle='#fff7d4';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('出口',e.x+e.w/2,e.y-8);}
     for (const s of game.supplies) {
       if (s.taken || !office.visible(s, game.camera)) continue;
@@ -330,7 +406,10 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#192d45';
       ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(({grenade:'炸弹',spread:'散射',pierce:'穿透',rapid:'疾射',heavy:'重击'})[s.type] ?? '补血', x, y + 15);
+      ctx.fillText(({grenade:'炸弹',spread:'霰弹',pierce:'穿透',rapid:'疾射',heavy:'重击'})[s.type] ?? '补血', x, y + 15);
+    }
+    for (const food of game.food) {
+      if (!food.taken && office.visible(food, game.camera)) foodItem(food, game.elapsed);
     }
     for (const e of game.enemies) if (office.visible(e, game.camera)) dog(e, game.elapsed);
     dog(game.boss, game.elapsed, game.camera);
