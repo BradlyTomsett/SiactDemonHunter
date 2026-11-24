@@ -91,7 +91,6 @@ export function createInput(controls, onPause, canPlay) {
   }
 
   function setPointer(event, group) {
-    if (pointers.get(event.pointerId)?.action === "fire") return;
     const action = actionAt(event, group);
     const wasActive = active(action);
     pointers.set(event.pointerId, { action });

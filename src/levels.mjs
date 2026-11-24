@@ -9,13 +9,17 @@ export const PLAYER = {
   knockbackSpeed: 145, knockbackTime: 0.16,
 };
 
+// 射程 = speed × lifetime，全部拉到 675px 以上，超过整屏（VIEW.width = 640）。
 export const WEAPONS = {
-  basic: { name: '普通枪', ammo: Infinity, interval: 0.16, speed: 478, lifetime: 0.92, damage: 1, size: 4, color: '#ffb52e' },
-  spread: { name: '散射枪', ammo: 40, interval: 0.135, speed: 520, lifetime: 0.65, damage: 1, size: 5, spread: 0.19, color: '#ff558e' },
-  pierce: { name: '穿透枪', ammo: 32, interval: 0.12, speed: 680, lifetime: 0.9, damage: 2, size: 5, pierce: 3, color: '#00d7f5' },
-  rapid: { name: '疾射枪', ammo: 98, interval: 0.064, speed: 630, lifetime: 0.78, damage: 1, size: 4, color: '#8aff43' },
-  heavy: { name: '重击枪', ammo: 18, interval: 0.14, speed: 475, lifetime: 0.95, damage: 4, size: 9, color: '#ad60ff' },
+  basic: { name: '普通枪', ammo: Infinity, interval: 0.16, speed: 478, lifetime: 1.42, damage: 1, size: 4, color: '#ffb52e' },
+  spread: { name: '散射枪', ammo: 40, interval: 0.135, speed: 520, lifetime: 1.3, damage: 1, size: 5, spread: 0.19, color: '#ff558e' },
+  pierce: { name: '穿透枪', ammo: 32, interval: 0.12, speed: 680, lifetime: 1, damage: 2, size: 5, pierce: 3, color: '#00d7f5' },
+  rapid: { name: '疾射枪', ammo: 98, interval: 0.064, speed: 630, lifetime: 1.08, damage: 1, size: 4, color: '#8aff43' },
+  heavy: { name: '重击枪', ammo: 18, interval: 0.14, speed: 475, lifetime: 1.43, damage: 4, size: 9, color: '#ad60ff' },
 };
+
+// 手榴弹：伤害在原版 5 点基础上提高 50%。
+export const GRENADE = { damage: 7.5, radius: 80, fuse: 1.1 };
 
 // 三种小狗共用耳机弹，移动方式、射程和射击节奏各有区别。
 export const ENEMIES = {
@@ -39,6 +43,14 @@ export const BOSS = {
   intro: 3.0, warning: 1, dashSpeed: 181, dashDuration: 1.35,
   leapSpeed: 94, leapDuration: 1.5, leapHeight: 78,
   waveSpeed: 175, recovery: 1.1, damage: 1,
+};
+
+// BOSS 天降物：落地后不消失，按巡逻小怪的速度在地面来回滑，不打掉就一直弹。
+// 场上同时最多 max 坨，达到上限后暂停投放，等玩家清掉再继续。
+export const DROPPINGS = {
+  size: 26, fallMin: 55, fallMax: 75, max: 6,
+  rollSpeed: 30, damage: 1, heal: 1,
+  edge: 2,
 };
 
 function createChapter(id, name, width, subtitle) {
@@ -100,6 +112,7 @@ hint(ch1, 0, '摇杆移动与瞄准，红黄警示区会伤人');
 hint(ch1, 240, '跳上书本，再越过桌缝');
 hint(ch1, 700, '前方有巡逻怪，按住开火可以连发');
 hint(ch1, 1126, '高处的平台能省一段路');
+hint(ch1, 1200, '面包屑可以开枪打掉');
 hint(ch1, 1520, '红色区域会伤人，跳过去');
 
 // ── 2/9 书堆迷宫：纵向爬升 + 射击怪 ────────────────────────────────────────
@@ -164,14 +177,14 @@ flyer(ch3, 800, 190, 770, 900);
 flyer(ch3, 2050, 180, 1980, 2240);
 hazard(ch3, 470, 100, GROUND - 14, 'cable');
 hazard(ch3, 1000, 110, GROUND - 14, 'cable');
-hazard(ch3, 1140, 50, GROUND - 14, 'cable');
+hazard(ch3, 1160, 50, GROUND - 14, 'cable');
 hazard(ch3, 1950, 100, GROUND - 14, 'cable');
 weapon(ch3, 1600, 190, 'spread');
 health(ch3, 900, 270);
 grenades(ch3, 2600, 270);
 health(ch3, 2400, 270);
 cp(ch3, 80); cp(ch3, 400); cp(ch3, 920); cp(ch3, 1450); cp(ch3, 1900); cp(ch3, 2400);
-hint(ch3, 0, '地面上的电缆会放电，跳过去或者走上层');
+hint(ch3, 0, '电缆周期通电，暗淡时可安全通过');
 hint(ch3, 260, '空中飘的飞怪会俯冲，提前射它');
 hint(ch3, 800, '断崖之间有小跳板，别掉下去');
 hint(ch3, 1400, '检查点每走一段就有一个');
@@ -201,18 +214,18 @@ gunner(ch4, 2400);
 patrol(ch4, 2600, 2500, 2740);
 flyer(ch4, 2100, 170, 2000, 2160);
 hazard(ch4, 140, 90, GROUND - 14, 'spill');
-hazard(ch4, 560, 140, GROUND - 14, 'spill');
-hazard(ch4, 760, 120, GROUND - 14, 'spill');
+hazard(ch4, 560, 95, GROUND - 14, 'spill');
+hazard(ch4, 760, 95, GROUND - 14, 'spill');
 hazard(ch4, 1350, 110, GROUND - 14, 'spill');
-hazard(ch4, 1890, 130, GROUND - 14, 'spill');
-hazard(ch4, 2000, 60, GROUND - 14, 'crumb');
+hazard(ch4, 1890, 90, GROUND - 14, 'spill');
+hazard(ch4, 2040, 50, GROUND - 14, 'crumb');
 weapon(ch4, 1000, 160, 'rapid');
 health(ch4, 1300, 270);
 grenades(ch4, 1650, 270);
 health(ch4, 2350, 270);
 weapon(ch4, 2750, 270, 'heavy');
 cp(ch4, 100); cp(ch4, 480); cp(ch4, 1300); cp(ch4, 1800); cp(ch4, 2320); cp(ch4, 2600);
-hint(ch4, 0, '咖啡渍又滑又疼，最好跳过去');
+hint(ch4, 0, '咖啡渍会打滑，转向和刹车变慢，跳过可免受伤害');
 hint(ch4, 340, '滑行时很难刹车，提前起跳');
 hint(ch4, 800, '注意高台上的射击怪');
 hint(ch4, 1250, '两处咖啡渍之间是安全区');
@@ -298,7 +311,8 @@ health(printer, 700, 270); grenades(printer, 1330, 270); weapon(printer, 1800, 2
 cp(printer, 120); cp(printer, 740); cp(printer, 1350); cp(printer, 1740);
 hint(printer, 0, '踏上打印机顶盖，越过纸张和出纸口');
 
-export const LEVELS = [ch1, ch2, ch3, ch4, ch5, floor, monitor, printer, ch6];
+const CHAPTERS = [ch1, ch2, ch3, ch4, ch5, floor, monitor, printer, ch6];
+const BOSS_HEALTH = [45, 60, 63, 66, 72, 75, 78, 84, 90];
 
 const bossCoats = [
   { name: '金黄', light: '#efaf43', dark: '#955028', mark: '#ffd88d', pattern: 'solid' },
@@ -312,7 +326,7 @@ const bossCoats = [
   { name: '奶油白', light: '#fff8de', dark: '#c3a782', mark: '#f9dfaf', pattern: 'mask' },
 ];
 
-for (const [index, level] of LEVELS.entries()) {
+for (const [index, level] of CHAPTERS.entries()) {
   const hasRoomAtEnd = level === ch2 || level === ch6;
   const arenaLeft = level === ch2 ? 2620 : level === ch6 ? 1180 : level.width;
   if (!hasRoomAtEnd) {
@@ -325,10 +339,68 @@ for (const [index, level] of LEVELS.entries()) {
     ...BOSS, arenaLeft, arenaRight,
     trigger: arenaLeft + 20,
     spawnX: arenaLeft + (level === ch2 ? 370 : 310),
-    health: [45, 60, 63, 66, 72, 75, 78, 84, 90][index],
+    health: BOSS_HEALTH[index],
     coat: bossCoats[index],
+    pattern: index % 3,
   };
   level.exit = { ...level.exit, x: arenaRight + 7 };
   if (level !== ch2) cp(level, arenaLeft - 48);
-  hint(level, arenaLeft - 10, '击败前方的 6 狗，出口才会打开。');
+  hint(level, arenaLeft - 10, '击败前方的 6 狗才能继续前进。');
 }
+
+// 把两段或多段拼成一段：坐标整体右移，BOSS 各自保留自己的竞技场，
+// 只保留最后一段的出口，途中的出口全部丢弃。
+function shift(items, dx) {
+  return items.map(item => {
+    const copy = { ...item, x: item.x + dx };
+    if (typeof item.minX === 'number') copy.minX = item.minX + dx;
+    if (typeof item.maxX === 'number') copy.maxX = item.maxX + dx;
+    return copy;
+  });
+}
+
+function mergeChapters(id, name, subtitle, parts) {
+  const merged = createChapter(id, name, 0, subtitle);
+  merged.platforms = [];
+  merged.decoration = [];
+  merged.enemies = [];
+  merged.supplies = [];
+  merged.hazards = [];
+  merged.checkpoints = [];
+  merged.hints = [];
+  merged.bosses = [];
+  merged.regions = [];
+  let offset = 0;
+  for (const part of parts) {
+    merged.regions.push({ x: offset, end: offset + part.width, theme: part.id });
+    merged.platforms.push(...shift(part.platforms, offset));
+    merged.decoration.push(...shift(part.decoration, offset));
+    merged.enemies.push(...shift(part.enemies, offset));
+    merged.supplies.push(...shift(part.supplies, offset));
+    merged.hazards.push(...shift(part.hazards, offset));
+    merged.checkpoints.push(...shift(part.checkpoints, offset));
+    merged.hints.push(...shift(part.hints, offset));
+    merged.bosses.push({
+      ...part.boss,
+      arenaLeft: part.boss.arenaLeft + offset,
+      arenaRight: part.boss.arenaRight + offset,
+      trigger: part.boss.trigger + offset,
+      spawnX: part.boss.spawnX + offset,
+    });
+    offset += part.width;
+  }
+  merged.width = offset;
+  merged.spawn = { ...parts[0].spawn };
+  const last = parts[parts.length - 1];
+  merged.exit = { ...last.exit, x: last.exit.x + (offset - last.width) };
+  merged.boss = merged.bosses[0];
+  return merged;
+}
+
+// 9 段合并为 4 段：1+2、3+4、5+6、7+8+9。BOSS 总数仍是 9 只。
+export const LEVELS = [
+  mergeChapters('ch1', '第一关 · 1/4 键盘与书堆', '键盘区和书堆迷宫', [ch1, ch2]),
+  mergeChapters('ch2', '第一关 · 2/4 线缆与咖啡渍', '显示器线缆区和咖啡渍区', [ch3, ch4]),
+  mergeChapters('ch3', '第一关 · 3/4 抽屉与地面', '抽屉军械库和办公室地面', [ch5, floor]),
+  mergeChapters('ch4', '第一关 · 4/4 屏幕到桌缝', '显示器顶部、打印机和桌缝终局', [monitor, printer, ch6]),
+];

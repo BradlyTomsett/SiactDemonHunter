@@ -64,6 +64,13 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     }
     // The part behind the jumping path has no sharp horizontal features.
     fill(0, 164, W, H - 164, gradient(164, 135, '#c9f0e400', '#b9e9ddec', '#9ad3ca'));
+    const region = level.regions?.find(item => camera + W / 2 >= item.x && camera + W / 2 < item.end);
+    const tint = {
+      ch1: '#f4ad6120', ch2: '#b58b5628', ch3: '#427ed133',
+      ch4: '#ae653530', ch5: '#92605a30', floor: '#478a6630',
+      monitor: '#2679d66b', printer: '#ffd89270', ch6: '#1a243d99',
+    }[region?.theme];
+    if (tint) fill(0, 0, W, H, tint);
   }
 
   function gaps(level, camera) {

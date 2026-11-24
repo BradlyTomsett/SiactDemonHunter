@@ -1,4 +1,4 @@
-import { ENEMIES, PLAYER, VIEW, WEAPONS } from "./levels.mjs";
+import { DROPPINGS, ENEMIES, GRENADE, PLAYER, VIEW, WEAPONS } from "./levels.mjs";
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const approach = (start, end, step) => start + clamp(end - start, -step, step);
@@ -10,6 +10,7 @@ export function createGame(level, options = {}) {
     level, player: null, status: "playing", reason: "", camera: 0, elapsed: 0,
     lives: options.lives ?? PLAYER.lives, respawns: 0, respawnReason: "", checkpoint: -1,
     enemies: [], supplies: [], bullets: [], enemyShots: [], sparks: [], grenades: [], waves: [],
+    bosses: [], boss: null, clearedBosses: 0,
   };
   resetLevel(game, -1, options.carry);
   return game;
@@ -40,9 +41,10 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     health: keep?.health ?? PLAYER.maxHealth, invincible: 0, knockback: 0,
     weapon: keep?.weapon ?? 'basic',
     ammo: keep?.ammo ?? Infinity,
-    grenades: keep?.grenades ?? 2,
+    grenades: keep?.grenades ?? 2, boost: keep?.boost ?? 0,
   };
   game.enemies = level.enemies.map(makeEnemy);
+  game.hazards = level.hazards.map(hazard => ({ ...hazard, destroyed: false }));
   game.supplies = level.supplies.map(supply => ({
     ...supply, x: supply.x - 4, y: supply.y - 8, w: 22, h: 22, taken: false,
   }));
@@ -55,12 +57,20 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   game.dropTimer = 2.5;
   game.sparks = [];
   game.checkpoint = checkpointIndex;
-  game.boss = level.boss ? {
-    x: level.boss.spawnX, y: level.boss.ground - level.boss.height,
-    w: level.boss.width, h: level.boss.height,
-    health: level.boss.health, maxHealth: level.boss.health, speech: 0, coat: level.boss.coat,
-    state: 'waiting', timer: 0, attack: 'dash', direction: -1, flash: 0,
-  } : null;
+  const configs = level.bosses ?? (level.boss ? [level.boss] : []);
+  game.bosses = configs.map((cfg, index) => ({
+    x: cfg.spawnX, y: cfg.ground - cfg.height,
+    w: cfg.width, h: cfg.height,
+    health: cfg.health, maxHealth: cfg.health, speech: 0, coat: cfg.coat,
+    state: 'waiting', timer: 0, attack: 'dash', direction: -1, flash: 0, attackIndex: 0, dashLeft: 0,
+    label: cfg.label, number: index + 1, total: configs.length, cfg,
+  }));
+  // 死亡重来时，已经打赢的 BOSS 保持倒地，否则会被迫回头重打。
+  for (let i = 0; i < game.clearedBosses && i < game.bosses.length; i++) {
+    game.bosses[i].state = 'defeated';
+    game.bosses[i].health = 0;
+  }
+  game.boss = game.bosses.find(item => item.state !== 'defeated') ?? game.bosses[game.bosses.length - 1] ?? null;
   game.camera = clamp(spawnX - VIEW.width * 0.38, 0, Math.max(0, level.width - VIEW.width));
   game.status = "playing";
   game.reason = "";
@@ -95,7 +105,7 @@ function die(game, reason) {
 function movePlayer(game, input, dt) {
   const p = game.player;
   const platforms = game.level.platforms;
-  const slipping = p.grounded && game.level.hazards.some(h => h.kind === 'spill' && overlaps(p, h));
+  const slipping = p.grounded && game.hazards.some(h => h.kind === 'spill' && overlaps(p, h));
   const acceleration = PLAYER.acceleration * (slipping ? 0.22 : 1);
 
   p.coyote = p.grounded ? PLAYER.coyoteTime : Math.max(0, p.coyote - dt);
@@ -120,9 +130,9 @@ function movePlayer(game, input, dt) {
 
   const oldX = p.x;
   p.x = clamp(p.x + p.vx * dt, 0, game.level.width - p.w);
-  const arena = game.level.boss;
-  if (arena && game.boss && !['waiting', 'defeated'].includes(game.boss.state)) {
-    p.x = clamp(p.x, arena.arenaLeft, arena.arenaRight - p.w);
+  const arena = game.boss;
+  if (arena && !['waiting', 'defeated'].includes(arena.state)) {
+    p.x = clamp(p.x, arena.cfg.arenaLeft, arena.cfg.arenaRight - p.w);
   }
   for (const solid of platforms) {
     if (solid.oneway) continue;
@@ -159,6 +169,19 @@ function sparks(game, x, y, color, count) {
   }
 }
 
+function damageTarget(game, target, amount, flash) {
+  target.health = Math.max(0, target.health - amount);
+  target.flash = flash;
+  if (target !== game.boss || target.health > 0) return;
+
+  // 致命一击立即保存进度，倒地动画结束后才开放通道。
+  game.clearedBosses += 1;
+  target.state = 'dying';
+  target.timer = 2.25;
+  target.y = target.cfg.ground - target.h;
+  game.waves = [];
+}
+
 function stepShots(game, fire, dt) {
   const p = game.player;
   p.cooldown = Math.max(0, p.cooldown - dt);
@@ -172,7 +195,7 @@ function stepShots(game, fire, dt) {
     for (const angle of angles) {
       const vx = (p.aimX * Math.cos(angle) - p.aimY * Math.sin(angle)) * weapon.speed;
       const vy = (p.aimX * Math.sin(angle) + p.aimY * Math.cos(angle)) * weapon.speed;
-      game.bullets.push({ x, y, w: size, h: size, vx, vy, kind, life: weapon.lifetime, damage: weapon.damage, pierce: weapon.pierce ?? 1, hit: [] });
+      game.bullets.push({ x, y, w: size, h: size, vx, vy, kind, life: weapon.lifetime, damage: weapon.damage * (p.boost > 0 ? 1.5 : 1), pierce: weapon.pierce ?? 1, hit: [] });
     }
     p.cooldown = weapon.interval;
     p.flash = 0.06;
@@ -189,13 +212,14 @@ function stepShots(game, fire, dt) {
     bullet.y += dy;
     bullet.life -= dt;
     if (game.level.platforms.some(solid => !solid.oneway && overlaps(sweep, solid))) return false;
+    const crumb = game.hazards.find(h => h.kind === 'crumb' && !h.destroyed && overlaps(h, sweep));
+    if (crumb) { crumb.destroyed = true; sparks(game, crumb.x + crumb.w / 2, crumb.y, '#c79555', 7); return false; }
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
     if (dropping) { dropping.destroyed = true; sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < VIEW.height;
-    enemy.health = Math.max(0, enemy.health - bullet.damage);
+    damageTarget(game, enemy, bullet.damage, 0.12);
     bullet.hit.push(enemy);
-    enemy.flash = 0.12;
     sparks(game, bullet.x + bullet.w / 2, bullet.y + bullet.h / 2, WEAPONS[bullet.kind]?.color ?? '#ffb52e', enemy.health === 0 ? 9 : 3);
     return --bullet.pierce > 0;
   });
@@ -280,7 +304,7 @@ function stepGrenades(game, input, dt) {
   const p = game.player;
   if (input.grenade && p.grenades > 0) {
     p.grenades--;
-    game.grenades.push({ x: p.x + p.w / 2 - 5, y: p.y + 8, w: 10, h: 10, vx: p.facing * 210, vy: -250, fuse: 1.1, spin: 0 });
+    game.grenades.push({ x: p.x + p.w / 2 - 5, y: p.y + 8, w: 10, h: 10, vx: p.facing * 210, vy: -250, fuse: GRENADE.fuse, spin: 0 });
   }
   game.grenades = game.grenades.filter(g => {
     const oldY = g.y;
@@ -298,14 +322,17 @@ function stepGrenades(game, input, dt) {
     if (g.fuse > 0 && g.y < VIEW.height + 20) return true;
     const x = g.x + g.w / 2;
     const y = g.y + g.h / 2;
-    const radius = 80;
-    const inBlast = target => Math.hypot(target.x + target.w / 2 - x, target.y + target.h / 2 - y) < radius;
+    const radius = GRENADE.radius;
+    const inBlast = target => {
+      const closestX = clamp(x, target.x, target.x + target.w);
+      const closestY = clamp(y, target.y, target.y + target.h);
+      return Math.hypot(closestX - x, closestY - y) <= radius;
+    };
     const targets = [...game.enemies, ...game.waves, ...game.enemyShots];
     if (game.boss?.state !== 'waiting' && game.boss?.health > 0) targets.push(game.boss);
     for (const target of targets) {
       if (target.health > 0 && inBlast(target)) {
-        target.health = Math.max(0, target.health - 5);
-        target.flash = 0.15;
+        damageTarget(game, target, GRENADE.damage, 0.15);
       }
     }
     for (const drop of game.droppings) if (inBlast(drop)) drop.destroyed = true;
@@ -322,19 +349,15 @@ function makeHeadphone(x, ground, direction) {
 
 function stepBoss(game, dt) {
   const boss = game.boss;
-  const cfg = game.level.boss;
-  if (!boss || !cfg || boss.state === 'defeated') return false;
+  if (!boss) return false;
+  const cfg = boss.cfg;
+  if (!cfg || boss.state === 'defeated') return false;
   if (boss.state === 'waiting') {
-    if (game.player.x < cfg.trigger) return false;
+    const previousCleared = game.bosses.slice(0, boss.number - 1).every(item => item.state === 'defeated');
+    if (!previousCleared || game.player.x < cfg.trigger) return false;
     boss.state = 'intro'; boss.timer = cfg.intro;
   }
   boss.flash = Math.max(0, boss.flash - dt);
-  if (boss.health <= 0 && boss.state !== 'dying') {
-    boss.state = 'dying';
-    boss.timer = 2.25;
-    boss.y = cfg.ground - boss.h;
-    game.waves = [];
-  }
   // 血量越低节奏越快：三阶段
   const ratio = boss.health / boss.maxHealth;
   const rage = ratio > 0.66 ? 1 : ratio > 0.33 ? 1.2 : 1.42;
@@ -348,10 +371,23 @@ function stepBoss(game, dt) {
     boss.y = cfg.ground - boss.h - Math.sin(progress * Math.PI) * cfg.leapHeight;
   }
   if (boss.timer <= 0) {
-    if (boss.state === 'dying') { boss.state = 'defeated'; return false; }
+    if (boss.state === 'dying') {
+      boss.state = 'defeated';
+      const next = game.bosses.find(item => item.state !== 'defeated');
+      if (next) game.boss = next;
+      return false;
+    }
     if (boss.state === 'intro' || boss.state === 'recovery') {
+      const patterns = [
+        ['dash', 'wave', 'dash', 'wave'],
+        ['doubleDash', 'wave', 'leap', 'wave'],
+        ['dash', 'wave', 'dash', 'dash', 'doubleWave', 'leap'],
+      ];
+      const pattern = patterns[cfg.pattern ?? 0];
+      boss.attack = pattern[boss.attackIndex++ % pattern.length];
+      boss.dashLeft = boss.attack === 'doubleDash' ? 2 : 1;
       boss.direction = game.player.x < boss.x ? -1 : 1;
-      boss.state = boss.attack === 'dash' ? 'warnDash' : boss.attack === 'leap' ? 'warnLeap' : 'warnWave'; boss.timer = warning;
+      boss.state = ['dash', 'doubleDash'].includes(boss.attack) ? 'warnDash' : boss.attack === 'leap' ? 'warnLeap' : 'warnWave'; boss.timer = warning;
     } else if (boss.state === 'warnDash') {
       boss.state = 'dash'; boss.timer = cfg.dashDuration;
     } else if (boss.state === 'warnLeap') {
@@ -366,9 +402,22 @@ function stepBoss(game, dt) {
         cfg.ground,
         boss.direction,
       ));
+      if (boss.attack === 'doubleWave') {
+        game.waves.push(makeHeadphone(
+          clamp(boss.x + boss.w / 2 - 11, cfg.arenaLeft + 2, cfg.arenaRight - 24),
+          cfg.ground,
+          -boss.direction,
+        ));
+      }
       boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'leap';
     } else if (boss.state === 'dash') {
-      boss.state = 'recovery'; boss.timer = cfg.recovery / rage; boss.attack = 'wave';
+      boss.dashLeft -= 1;
+      if (boss.dashLeft > 0) {
+        boss.direction = game.player.x < boss.x ? -1 : 1;
+        boss.state = 'warnDash'; boss.timer = 0.55;
+      } else {
+        boss.state = 'recovery'; boss.timer = (cfg.pattern === 2 ? 0.7 : cfg.recovery) / rage;
+      }
     }
   }
   const player = game.player;
@@ -411,23 +460,50 @@ function separateBoss(game, player, boss, arena) {
 function stepDroppings(game, dt) {
   const boss = game.boss;
   if (!boss || ['waiting', 'dying', 'defeated'].includes(boss.state)) { game.droppings = []; return false; }
+  const cfg = boss.cfg;
   boss.speech = Math.max(0, boss.speech - dt);
   game.dropTimer -= dt;
   if (game.dropTimer <= 0) {
-    const cfg = game.level.boss;
-    const target = Math.random() < 0.5 ? game.player.x : boss.x;
-    const size = 26;
-    const x = clamp(target + (Math.random() - 0.5) * 100, cfg.arenaLeft, cfg.arenaRight - size);
-    game.droppings.push({ x, y: -size, w: size, h: size, speed: 55 + Math.random() * 20 });
-    game.dropTimer = 2.6 + Math.random() * 1.8;
+    if (game.droppings.length >= DROPPINGS.max) {
+      // 场上已经满了，先不投，等玩家清掉一坨再继续。
+      game.dropTimer = 0.8;
+    } else {
+      const target = Math.random() < 0.5 ? game.player.x : boss.x;
+      const size = DROPPINGS.size;
+      const x = clamp(target + (Math.random() - 0.5) * 100, cfg.arenaLeft, cfg.arenaRight - size);
+      game.droppings.push({
+        x, y: -size, w: size, h: size,
+        speed: DROPPINGS.fallMin + Math.random() * (DROPPINGS.fallMax - DROPPINGS.fallMin),
+        state: 'falling',
+        direction: Math.random() < 0.5 ? -1 : 1,
+      });
+      game.dropTimer = 2.6 + Math.random() * 1.8;
+    }
   }
   const respawns = game.respawns;
   const remaining = game.droppings.filter(item => {
     if (item.destroyed || game.respawns !== respawns || game.status !== 'playing') return false;
-    item.y += item.speed * dt;
-    if (overlaps(item, boss)) { boss.health = Math.min(boss.maxHealth, boss.health + 1); boss.speech = 2.4; return false; }
-    if (overlaps(item, game.player)) { damagePlayer(game, item, 1); return false; }
-    return item.y < game.level.boss.ground - item.h;
+    if (item.state === 'rolling') {
+      // 落地后像巡逻小怪一样在地面左右滑，撞到竞技场边缘就掉头，不打掉就一直弹。
+      item.x += item.direction * DROPPINGS.rollSpeed * dt;
+      const left = cfg.arenaLeft + DROPPINGS.edge;
+      const right = cfg.arenaRight - item.w - DROPPINGS.edge;
+      if (item.x <= left) { item.x = left; item.direction = 1; }
+      else if (item.x >= right) { item.x = right; item.direction = -1; }
+    } else {
+      item.y += item.speed * dt;
+      if (overlaps(item, boss)) {
+        boss.health = Math.min(boss.maxHealth, boss.health + DROPPINGS.heal);
+        boss.speech = 2.4;
+        return false;
+      }
+      if (item.y + item.h >= cfg.ground) {
+        item.y = cfg.ground - item.h;
+        item.state = 'rolling';
+      }
+    }
+    if (overlaps(item, game.player)) damagePlayer(game, item, DROPPINGS.damage);
+    return true;
   });
   if (game.respawns !== respawns || game.status !== 'playing') return true;
   game.droppings = remaining;
@@ -450,6 +526,10 @@ function damagePlayer(game, source, amount) {
   return false;
 }
 
+export function cableActive(elapsed) {
+  return elapsed % 3 < 1.5;
+}
+
 export function stepGame(game, input, dt) {
   if (game.status !== "playing") return;
   const p = game.player;
@@ -457,6 +537,7 @@ export function stepGame(game, input, dt) {
   p.invincible = Math.max(0, p.invincible - dt);
   p.knockback = Math.max(0, p.knockback - dt);
   p.flash = Math.max(0, p.flash - dt);
+  p.boost = Math.max(0, p.boost - dt);
   movePlayer(game, input, dt);
   if (p.y > VIEW.height + 18) {
     die(game, "你跌下了桌面。");
@@ -478,8 +559,8 @@ export function stepGame(game, input, dt) {
   for (const enemy of game.enemies) {
     if (enemy.health && overlaps(p, enemy) && damagePlayer(game, enemy, ENEMIES[enemy.type].damage)) return;
   }
-  for (const hazard of game.level.hazards) {
-    if (overlaps(p, hazard) && damagePlayer(game, hazard, hazard.damage)) return;
+  for (const hazard of game.hazards) {
+    if (!hazard.destroyed && (hazard.kind !== 'cable' || cableActive(game.elapsed)) && overlaps(p, hazard) && damagePlayer(game, hazard, hazard.damage)) return;
   }
   for (const supply of game.supplies) {
     if (supply.taken || !overlaps(p, supply)) continue;
@@ -495,7 +576,7 @@ export function stepGame(game, input, dt) {
     supply.taken = true;
     sparks(game, supply.x + 7, supply.y + 7, "#89e0ae", 7);
   }
-  const gateOpen = !game.level.boss || (game.boss && game.boss.state === 'defeated');
+  const gateOpen = game.bosses.every(boss => boss.state === 'defeated');
   if (gateOpen && game.status === "playing" && overlaps(p, game.level.exit)) game.status = "cleared";
 
   const target = clamp(p.x - VIEW.width * 0.38, 0, Math.max(0, game.level.width - VIEW.width));

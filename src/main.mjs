@@ -13,6 +13,7 @@ const hint = byId("hint");
 const controls = byId("controls");
 const pauseButton = byId("pause");
 const overlay = byId("overlay");
+const rewards = byId("rewards");
 const primary = byId("primary");
 const guide = byId("guide");
 const home = byId("home");
@@ -76,6 +77,8 @@ function syncVisibility() {
 }
 
 function panel(next, title, message, label, action) {
+  rewards.hidden = true;
+  primary.hidden = false;
   byId("menu-title").textContent = title;
   byId("menu-message").textContent = message;
   byId("menu-chapter").textContent = game.level.name;
@@ -149,7 +152,7 @@ function showNotice(message) {
 function updateHud() {
   const hp = game.player.health;
   const weapon = WEAPONS[game.player.weapon];
-  byId('equipment').textContent = `${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  炸弹 ${game.player.grenades}/6`;
+  byId('equipment').textContent = `${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  炸弹 ${game.player.grenades}/6${game.player.boost > 0 ? ` 火力提升 ${Math.ceil(game.player.boost)}秒` : ''}`;
   if (hp !== previousHealth) {
     health.setAttribute("aria-label", `生命 ${hp} / ${PLAYER.maxHealth}`);
     for (const [i, heart] of [...health.children].entries()) heart.classList.toggle("empty", i >= hp);
@@ -204,6 +207,10 @@ function finish() {
         start();
       },
     );
+    primary.hidden = true;
+    rewards.hidden = false;
+    const ammoButton = rewards.querySelector('[data-reward="ammo"]');
+    ammoButton.textContent = game.player.weapon === 'basic' ? '获得满弹散射枪' : '补满当前武器弹药';
   } else {
     panel(
       "cleared",
@@ -218,6 +225,22 @@ function finish() {
     );
   }
 }
+
+rewards.addEventListener('click', event => {
+  const choice = event.target.closest('[data-reward]')?.dataset.reward;
+  if (!choice || rewards.hidden || screen !== 'cleared') return;
+  const carry = { ...game.player, boost: 0 };
+  let nextLives = game.lives;
+  if (choice === 'life') nextLives += 1;
+  if (choice === 'boost') carry.boost = 30;
+  if (choice === 'ammo') {
+    if (carry.weapon === 'basic') carry.weapon = 'spread';
+    carry.ammo = WEAPONS[carry.weapon].ammo;
+  }
+  completedTime += game.elapsed;
+  loadLevel(levelIndex + 1, nextLives, carry);
+  start();
+});
 
 function syncFullscreenButton() {
   fullscreen.textContent = document.fullscreenElement ? '退出全屏' : '全屏';
@@ -319,12 +342,12 @@ function frame(now) {
   lastTime = now;
   if (screen === "playing") {
     accumulator += seconds;
-    const priorBossState = game.boss?.state;
+    const priorDefeats = game.clearedBosses;
     while (accumulator >= step && game.status === "playing") {
       stepGame(game, input.read(), step);
       accumulator -= step;
     }
-    if (priorBossState !== "dying" && game.boss?.state === "dying") playDefeatVoice();
+    if (game.clearedBosses !== priorDefeats) playDefeatVoice();
     updateHud();
     if (game.status !== "playing") finish();
   }

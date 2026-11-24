@@ -1,4 +1,5 @@
 import { VIEW, WEAPONS } from './levels.mjs';
+import { cableActive } from './game.mjs';
 import { createOfficeArt } from './office-art.mjs';
 
 export function createRenderer(canvas) {
@@ -185,7 +186,10 @@ export function createRenderer(canvas) {
   }
   function dropping(d){
     const s=(d.w||18)/18;
-    ctx.save();ctx.translate(d.x+d.w/2-9*s,d.y+d.h/2-10.5*s);ctx.scale(s,s);
+    ctx.save();ctx.translate(d.x+d.w/2-9*s,d.y+d.h/2-10.5*s);
+    // 落地滚动时轻微摇摆，和天上的下落状态区分开。
+    if(d.state==='rolling'){ctx.rotate(d.direction*0.16);ctx.translate(0,-1);}
+    ctx.scale(s,s);
     oval(9,14,9,4,'#754023');oval(9,10,7,5,'#92512b');oval(10,6,5,4,'#a66332');oval(11,3,3,3,'#b77840');oval(7,10,1.2,1.2,'#fff1d2');oval(12,10,1.2,1.2,'#fff1d2');ctx.restore();}
   function headphone(shot, t) {
     if (shot.health <= 0) return;
@@ -287,18 +291,33 @@ export function createRenderer(canvas) {
       oval(center, support.y + 3, 8 + height * .036, 2.8, '#1a2229');
       ctx.restore();
     }
-    for(const h of game.level.hazards){
-      if (!office.visible(h, game.camera)) continue;
-      // 亮色警示边界与条纹均处于实际碰撞范围内。
-      round(h.x,h.y,h.w,h.h,3,'#9d2024');
-      ctx.save();ctx.beginPath();ctx.rect(h.x,h.y,h.w,h.h);ctx.clip();
-      for(let x=h.x-h.h;x<h.x+h.w;x+=14){ctx.fillStyle='#ffd846';ctx.beginPath();ctx.moveTo(x,h.y+h.h);ctx.lineTo(x+8,h.y+h.h);ctx.lineTo(x+8+h.h,h.y);ctx.lineTo(x+h.h,h.y);ctx.closePath();ctx.fill();}
-      ctx.restore();
-      line(h.x,h.y,h.x+h.w,h.y,'#fff19b',2);
-      const cx=h.x+h.w/2; oval(cx,h.y+7,6,6,'#9d2024');ctx.fillStyle='#fff';ctx.textAlign='center';ctx.font='bold 10px sans-serif';ctx.fillText('!',cx,h.y+10);
+    for (const h of game.hazards) {
+      if (h.destroyed || !office.visible(h, game.camera)) continue;
+      if (h.kind === 'spill') {
+        oval(h.x + h.w / 2, h.y + h.h - 3, h.w / 2, 6, '#774735');
+        line(h.x + 8, h.y + h.h - 7, h.x + h.w - 8, h.y + h.h - 7, '#e9bb87', 2);
+      } else if (h.kind === 'crumb') {
+        for (let x = h.x + 4; x < h.x + h.w; x += 13) oval(x, h.y + h.h - 4, 6, 4, '#b88143');
+      } else {
+        line(h.x, h.y + h.h - 4, h.x + h.w, h.y + h.h - 4, '#334e5b', 5);
+        if (cableActive(game.elapsed)) {
+          for (let x = h.x + 8; x < h.x + h.w; x += 24) {
+            line(x, h.y + 8, x + 5, h.y + 2, '#fff179', 2);
+            line(x + 5, h.y + 2, x + 2, h.y + 10, '#83e9ff', 2);
+          }
+        }
+      }
+    }
+    const firstPlatform = game.level.platforms.find(platform => platform.oneway);
+    if (firstPlatform && game.player.x < firstPlatform.x + firstPlatform.w && office.visible(firstPlatform, game.camera)) {
+      const x = firstPlatform.x + firstPlatform.w / 2;
+      const y = firstPlatform.y + 27 + Math.sin(game.elapsed * 4) * 3;
+      round(x - 12, y - 12, 24, 23, 9, '#124958');
+      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = 'bold 20px sans-serif';
+      ctx.fillText('↑', x, y + 6);
     }
     for(const [i,c] of game.level.checkpoints.entries()){line(c.x,c.y-26,c.x,c.y,'#d7e8d4',2);round(c.x,c.y-26,14,9,3,i<=game.checkpoint?'#72e5ad':'#678483');}
-    if(!game.level.boss || game.boss?.state==='defeated'){const e=game.level.exit;round(e.x-4,e.y-4,e.w+8,e.h+4,9,'#bbdbc4');round(e.x,e.y,e.w,e.h,7,'#416e68');ctx.fillStyle='#fff7d4';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('出口',e.x+e.w/2,e.y-8);}
+    if(game.bosses.every(boss=>boss.state==='defeated')){const e=game.level.exit;round(e.x-4,e.y-4,e.w+8,e.h+4,9,'#bbdbc4');round(e.x,e.y,e.w,e.h,7,'#416e68');ctx.fillStyle='#fff7d4';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('出口',e.x+e.w/2,e.y-8);}
     for (const s of game.supplies) {
       if (s.taken || !office.visible(s, game.camera)) continue;
       const x = s.x + s.w / 2;
@@ -330,7 +349,7 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#5c2525';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`${game.level.boss.label} · ${boss.coat.name}`, 320, 69.5);
+      ctx.fillText(`${boss.label} · ${boss.coat.name}${boss.total > 1 ? ` · ${boss.number}/${boss.total}` : ''}`, 320, 69.5);
     }
   };
 }
