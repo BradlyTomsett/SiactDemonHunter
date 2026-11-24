@@ -46,7 +46,7 @@ export const ENEMIES = {
 
 export const BOSS = {
   width: 78, height: 64, label: '6狗', ground: GROUND,
-  intro: 3.0, warning: 1, dashSpeed: 181, dashDuration: 1.35,
+  intro: 1.0, warning: 1, dashSpeed: 181, dashDuration: 1.35,
   leapSpeed: 94, leapDuration: 1.5, leapHeight: 78,
   waveSpeed: 175, recovery: 1.1, damage: 1,
 };
@@ -360,9 +360,6 @@ cp(printer, 120); cp(printer, 740); cp(printer, 1350); cp(printer, 1740);
 hint(printer, 0, '沿纸张向上可获取补给，小心高处飞怪');
 
 const CHAPTERS = [ch1, ch2, ch3, ch4, ch5, floor, monitor, printer, ch6];
-const BOSS_HEALTH = [45, 60, 63, 66, 72, 75, 78, 84, 90];
-// 招式模板按章节写死：0-0 / 2-0 / 1-2 / 1-2-2，让最难的连段留到后面。
-const BOSS_PATTERNS = [0, 0, 2, 0, 1, 2, 1, 2, 2];
 
 const bossCoats = [
   { name: '金黄', light: '#efaf43', dark: '#955028', mark: '#ffd88d', pattern: 'solid' },
@@ -376,7 +373,24 @@ const bossCoats = [
   { name: '奶油白', light: '#fff8de', dark: '#c3a782', mark: '#f9dfaf', pattern: 'mask' },
 ];
 
-for (const [index, level] of CHAPTERS.entries()) {
+// 每关只在最后一段放 BOSS：第 1 关 ch2（6 狗）、第 2 关 ch4（骡子）、第 3 关 floor、第 4 关 ch6。
+const BOSS_CHAPTERS = new Map([
+  [ch2, { health: 60, pattern: 0, coat: bossCoats[0], kind: 'dog', label: '6狗' }],
+  [ch4, { health: 80, pattern: 0, coat: null, kind: 'mule', label: '骡子' }],
+  [floor, { health: 100, pattern: 1, coat: bossCoats[2], kind: 'dog', label: '6狗' }],
+  [ch6, { health: 120, pattern: 2, coat: bossCoats[8], kind: 'dog', label: '6狗' }],
+]);
+
+// 原来有 BOSS 但被取消的场地：长度保留，改成一片巡逻队把守的区域。
+function fillArena(level, arenaLeft, arenaRight) {
+  patrol(level, arenaLeft + 90, arenaLeft + 30, arenaRight - 140);
+  gunner(level, Math.min(arenaLeft + 300, arenaRight - 70));
+  if (arenaRight - arenaLeft > 480) flyer(level, arenaLeft + 210, 190, arenaLeft + 70, arenaRight - 110);
+  health(level, arenaLeft + 470, GROUND - 34);
+  hint(level, arenaLeft + 10, '这里原本有首领驻守，现在换成了巡逻队。');
+}
+
+for (const level of CHAPTERS) {
   const hasRoomAtEnd = level === ch2 || level === ch6;
   const arenaLeft = level === ch2 ? 2620 : level === ch6 ? 1180 : level.width;
   if (!hasRoomAtEnd) {
@@ -385,33 +399,37 @@ for (const [index, level] of CHAPTERS.entries()) {
     level.width += 635;
   }
   const arenaRight = level.width - 46;
+  const spec = BOSS_CHAPTERS.get(level);
+  if (!spec) {
+    fillArena(level, arenaLeft, arenaRight);
+    continue;
+  }
   level.boss = {
     ...BOSS, arenaLeft, arenaRight,
     trigger: arenaLeft + 20,
     spawnX: arenaLeft + (level === ch2 ? 370 : 310),
-    health: BOSS_HEALTH[index],
-    coat: bossCoats[index],
-    pattern: BOSS_PATTERNS[index],
+    health: spec.health,
+    coat: spec.coat,
+    pattern: spec.pattern,
+    kind: spec.kind,
+    label: spec.label,
   };
-  // 第 1 段结尾是一只骡子：技能只有「逻辑」声波，半血时喊一次「狗来」召唤 6 狗。
-  if (index === 1) {
+  // 骡子：技能只有「逻辑」声波，半血时喊一次「狗来」召唤 6 狗。
+  if (spec.kind === 'mule') {
     Object.assign(level.boss, {
-      kind: 'mule',
-      label: '骡子',
-      coat: null,
       warning: 0.9,
       logicSpeed: 190,
       summonAt: 0.5,
       summonTime: 2.8,
-      summonHealth: 45,
+      summonHealth: 60,
       summonPattern: 0,
       summonCoat: bossCoats[0],
       droppings: false,
     });
   }
   level.exit = { ...level.exit, x: arenaRight + 7 };
-  if (level !== ch2) cp(level, arenaLeft - 48);
-  hint(level, arenaLeft - 10, `击败前方的 ${level.boss.label} 才能继续前进。`);
+  cp(level, arenaLeft - 48);
+  hint(level, arenaLeft - 10, `击败前方的 ${spec.label} 才能继续前进。`);
 }
 
 // 把两段或多段拼成一段：坐标整体右移，BOSS 各自保留自己的竞技场，
@@ -446,13 +464,15 @@ function mergeChapters(id, name, subtitle, parts) {
     merged.hazards.push(...shift(part.hazards, offset));
     merged.checkpoints.push(...shift(part.checkpoints, offset));
     merged.hints.push(...shift(part.hints, offset));
-    merged.bosses.push({
-      ...part.boss,
-      arenaLeft: part.boss.arenaLeft + offset,
-      arenaRight: part.boss.arenaRight + offset,
-      trigger: part.boss.trigger + offset,
-      spawnX: part.boss.spawnX + offset,
-    });
+    if (part.boss) {
+      merged.bosses.push({
+        ...part.boss,
+        arenaLeft: part.boss.arenaLeft + offset,
+        arenaRight: part.boss.arenaRight + offset,
+        trigger: part.boss.trigger + offset,
+        spawnX: part.boss.spawnX + offset,
+      });
+    }
     offset += part.width;
   }
   merged.width = offset;
@@ -483,10 +503,10 @@ function mergeChapters(id, name, subtitle, parts) {
   return merged;
 }
 
-// 9 段合并为 4 段：1+2、3+4、5+6、7+8+9。BOSS 总数仍是 9 只。
+// 9 段合并为 4 关：1+2、3+4、5+6、7+8+9。每关只有关尾一只 BOSS。
 export const LEVELS = [
-  mergeChapters('ch1', '第一关 · 1/4 键盘与书堆', '键盘区和书堆迷宫', [ch1, ch2]),
-  mergeChapters('ch2', '第一关 · 2/4 线缆与咖啡渍', '显示器线缆区和咖啡渍区', [ch3, ch4]),
-  mergeChapters('ch3', '第一关 · 3/4 抽屉与地面', '抽屉军械库和办公室地面', [ch5, floor]),
-  mergeChapters('ch4', '第一关 · 4/4 屏幕到桌缝', '显示器顶部、打印机和桌缝终局', [monitor, printer, ch6]),
+  mergeChapters('ch1', '第 1 关 · 键盘与书堆', '键盘区和书堆迷宫', [ch1, ch2]),
+  mergeChapters('ch2', '第 2 关 · 线缆与咖啡渍', '显示器线缆区和咖啡渍区', [ch3, ch4]),
+  mergeChapters('ch3', '第 3 关 · 抽屉与地面', '抽屉军械库和办公室地面', [ch5, floor]),
+  mergeChapters('ch4', '第 4 关 · 屏幕到桌缝', '显示器顶部、打印机和桌缝终局', [monitor, printer, ch6]),
 ];

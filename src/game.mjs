@@ -1,4 +1,4 @@
-import { CHARACTERS, DROPPINGS, ENEMIES, GRENADE, PLAYER, VIEW, WEAPONS } from "./levels.mjs";
+import { CHARACTERS, DROPPINGS, ENEMIES, GRENADE, GROUND, PLAYER, VIEW, WEAPONS } from "./levels.mjs";
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const approach = (start, end, step) => start + clamp(end - start, -step, step);
@@ -86,6 +86,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   }
   game.boss = game.bosses.find(item => item.state !== 'defeated') ?? game.bosses[game.bosses.length - 1] ?? null;
   game.summon = null;
+  game.helper = null;
   game.camera = clamp(spawnX - VIEW.width * 0.38, 0, Math.max(0, level.width - VIEW.width));
   game.status = "playing";
   game.reason = "";
@@ -197,8 +198,8 @@ function addScore(game, points, type) {
 
 function damageTarget(game, target, amount, flash) {
   if (target.health <= 0) return;
-  // 骡子喊「狗来」和躲在后场的期间打不掉。
-  if (target === game.boss && (target.state === 'summon' || target.state === 'hidden')) return;
+  // 出场亮相（展示耳机）的 1 秒内无敌。
+  if (target === game.boss && (target.state === 'summon' || target.state === 'hidden' || target.state === 'intro')) return;
   target.health = Math.max(0, target.health - amount);
   target.flash = flash;
   if (target.health > 0) return;
@@ -481,7 +482,7 @@ function stepBoss(game, dt) {
     }
   }
   const player = game.player;
-  if (boss.state !== 'dying' && player.invincible <= 0 && overlaps(player, boss)) {
+  if (boss.state !== 'dying' && boss.state !== 'intro' && player.invincible <= 0 && overlaps(player, boss)) {
     if (damagePlayer(game, boss, cfg.damage)) return true;
     separateBoss(game, player, boss, cfg);
   }
@@ -613,7 +614,7 @@ function stepMule(game, boss, cfg, dt) {
     if (boss.timer <= 0) { boss.state = 'warnLogic'; boss.timer = cfg.warning; }
   }
 
-  if (player.invincible <= 0 && overlaps(player, boss)) {
+  if (player.invincible <= 0 && boss.state !== 'intro' && overlaps(player, boss)) {
     if (damagePlayer(game, boss, cfg.damage)) return true;
     separateBoss(game, player, boss, cfg);
   }
@@ -705,6 +706,38 @@ function stepDroppings(game, dt) {
   return false;
 }
 
+// 穿黑西装的「好人」：无敌、没有碰撞体积，只在 BOSS 战期间出现，定期送补给。
+function updateHelper(game, dt) {
+  const boss = game.boss;
+  const active = boss && !['waiting', 'defeated', 'hidden'].includes(boss.state);
+  if (!active) { game.helper = null; return; }
+  if (!game.helper) {
+    game.helper = {
+      x: clamp(game.player.x - 110, 24, game.level.width - 40),
+      y: GROUND - 26, w: 14, h: 26,
+      timer: 3.2, facing: 1, bob: 0,
+    };
+  }
+  const helper = game.helper;
+  helper.bob += dt;
+  const target = clamp(game.player.x + 80, 24, game.level.width - 40);
+  helper.x = clamp(approach(helper.x, target, 105 * dt), boss.cfg.arenaLeft + 6, boss.cfg.arenaRight - 22);
+  helper.facing = target < helper.x ? -1 : 1;
+  helper.timer -= dt;
+  if (helper.timer > 0) return;
+  helper.timer = 6.5 + Math.random() * 2.5;
+  const heal = Math.random() < 0.5 || game.player.health >= game.player.maxHealth;
+  game.supplies.push({
+    x: clamp(helper.x - 4, 10, game.level.width - 44),
+    y: GROUND - 34,
+    w: 22, h: 22,
+    type: heal ? undefined : 'ammo',
+    amount: 2,
+    taken: false,
+    gift: true,
+  });
+}
+
 function damagePlayer(game, source, amount) {
   const p = game.player;
   if (p.invincible > 0) return false;
@@ -758,6 +791,7 @@ export function stepGame(game, input, dt) {
   if (game.respawns !== respawns) { game.waves = []; return; }
   if (interrupted || game.status !== 'playing') return;
   if (stepDroppings(game, dt)) return;
+  updateHelper(game, dt);
 
   for (const enemy of game.enemies) {
     if (enemy.health && overlaps(p, enemy) && damagePlayer(game, enemy, ENEMIES[enemy.type].damage)) return;
@@ -770,6 +804,11 @@ export function stepGame(game, input, dt) {
     if (supply.type === 'grenade') {
       if (p.grenades >= GRENADE.max) continue;
       p.grenades = Math.min(GRENADE.max, p.grenades + supply.amount);
+    } else if (supply.type === 'ammo') {
+      // 好人送的弹药：普通枪时换成一把满弹的霰弹枪，否则只补满当前武器。
+      const kind = p.weapon === 'basic' ? 'spread' : p.weapon;
+      p.weapon = kind;
+      p.ammo = WEAPONS[kind].ammo * CHARACTERS[game.characterId].ammoMultiplier;
     } else if (WEAPONS[supply.type]) {
       p.weapon = supply.type; p.ammo = WEAPONS[supply.type].ammo * CHARACTERS[game.characterId].ammoMultiplier;
     } else {

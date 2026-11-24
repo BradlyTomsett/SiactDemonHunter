@@ -1,4 +1,4 @@
-import { createGame, restoreGame, stepGame } from "./game.mjs";
+﻿import { createGame, restoreGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
 import { CHARACTERS, GRENADE, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
@@ -272,7 +272,7 @@ function updateHud() {
   }
   if (game.respawns !== previousRespawns) {
     previousRespawns = game.respawns;
-    const stage = game.checkpoint >= 0 ? `第 ${game.checkpoint + 1} 处检查点` : "本段起点";
+    const stage = game.checkpoint >= 0 ? `第 ${game.checkpoint + 1} 处检查点` : "本关起点";
     showNotice(`${game.respawnReason}已回到${stage}，还剩 ${game.lives + 1} 条命`);
   }
   const totalLives = game.status === 'lost' ? 0 : game.lives + 1;
@@ -321,7 +321,7 @@ function showStageSummary(finalStage) {
   }
 
   addItem('🏆', '累计积分', game.score);
-  addItem('⭐', '本段积分', game.score - stats.startScore);
+  addItem('⭐', '本关积分', game.score - stats.startScore);
   addItem('♥️', '生命值', `${player.health}/${player.maxHealth}`, CHARACTERS[game.characterId].name);
   addItem('💚', '剩余命数', game.lives + 1);
   addItem('🔫', '武器弹药', amount(player.ammo), WEAPONS[player.weapon].name);
@@ -332,7 +332,7 @@ function showStageSummary(finalStage) {
   addItem('🎯', `击落首领投掷物（${points.projectiles} 分）`, stats.bossProjectiles);
   addItem('📦', `拾取道具（${points.pickups} 分）`, stats.pickups);
   addItem('🍽️', `食品收集（${points.food} 分）`, `${game.collectedFood.size}/${game.level.food.length}`);
-  addItem('⏱️', '本段用时', timeText(game.elapsed));
+  addItem('⏱️', '本关用时', timeText(game.elapsed));
   if (finalStage) addItem('⌛', '总用时', timeText(completedTime + game.elapsed));
   byId('reward-prompt').hidden = finalStage;
   stageSummary.hidden = false;
@@ -344,8 +344,8 @@ function finish() {
     panel(
       "lost",
       "行动失败",
-      `${game.reason}从本段开头重新开始，命数恢复。`,
-      "重试本段",
+      `${game.reason}从本关开头重新开始，命数恢复。`,
+      "重试本关",
       () => {
         loadLevel(levelIndex, PLAYER.lives, undefined, levelStartScore);
         start();
@@ -355,13 +355,13 @@ function finish() {
   }
   if (levelIndex < LEVELS.length - 1) {
     const nextLives = game.lives;
-    // 结算页被打断时，下次直接从下一段继续。
+    // 结算页被打断时，下次直接从下一关继续。
     persist({ nextLevel: levelIndex + 1 });
     panel(
       "cleared",
-      "本段通过",
+      "本关通过",
       "",
-      "下一段",
+      "下一关",
       () => {
         completedTime += game.elapsed;
         loadLevel(levelIndex + 1, nextLives, game.player, game.score);
@@ -377,7 +377,7 @@ function finish() {
   } else {
     panel(
       "cleared",
-      "第一关通关",
+      "全部通关",
       "",
       "再玩一局",
       () => {

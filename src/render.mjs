@@ -317,7 +317,54 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#ffdf6b';
       ctx.fillText('狗来', x, y);
       ctx.restore();
+    } else if (b.state === 'intro') {
+      const speechX = Math.min(camera + W - 100, Math.max(camera + 100, b.x + b.w / 2));
+      bubble('我给你讲讲这个逻辑', speechX, b.y - 10, '#4a2f1d', '#fff7df', '#cfae7e');
     }
+  }
+
+  // 小型医疗包：白盒 + 红十字 + 提手。
+  function medkit(x, y) {
+    oval(x, y + 11, 20, 14, '#56deb255');
+    round(x - 6, y - 5, 12, 6, 2, '#9fb9ac');
+    round(x - 15, y, 30, 22, 5, '#f7fbf7');
+    round(x - 13, y + 2, 26, 18, 4, '#eef6f0');
+    ctx.strokeStyle = '#2f6f5a';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.roundRect(x - 15, y, 30, 22, 5);
+    ctx.stroke();
+    round(x - 2.5, y + 4, 5, 14, 1.6, '#e04b52');
+    round(x - 7, y + 8.5, 15, 5, 1.6, '#e04b52');
+  }
+
+  function ammoBox(x, y) {
+    oval(x, y + 11, 21, 14, '#ffcf6e55');
+    round(x - 15, y, 30, 22, 4, '#2f3a2a');
+    round(x - 13, y + 2, 26, 18, 3, '#8fae6a');
+    for (let i = -7; i <= 3; i += 5) round(x + i, y + 4, 3.4, 9, 1.4, '#f2d071');
+    ctx.fillStyle = '#20301c';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('弹药', x + 2, y + 17);
+  }
+
+  // 穿黑西装的「好人」：无敌、没有碰撞体积，只负责送补给。
+  function helperNpc(h, t) {
+    const bob = Math.sin(t * 6) * 1.1;
+    ctx.save();
+    ctx.translate(Math.round(h.x + h.w / 2), Math.round(h.y));
+    ctx.scale(h.facing, 1);
+    line(-3, 20, -4, 26, '#1b2027', 4);
+    line(3, 20, 4, 26, '#1b2027', 4);
+    round(-7, 8, 14, 14, 3, '#1e2530');
+    round(-2.4, 9, 4.8, 11, 1, '#f2f5f7');
+    line(0, 11, 0, 19, '#8f1f2a', 2.2);
+    oval(0, 3 + bob, 4.6, 4.8, '#e8bd96');
+    round(-4.8, -1.5 + bob, 9.6, 3.8, 1.6, '#20262e');
+    round(6.5, 16, 9, 7, 1.5, '#3b2a1f');
+    line(8.5, 16, 13.5, 16, '#c9a26a', 1);
+    ctx.restore();
   }
 
   function headphone(shot, t) {
@@ -450,6 +497,8 @@ export function createRenderer(canvas) {
       if (s.taken || !office.visible(s, game.camera)) continue;
       const x = s.x + s.w / 2;
       const y = s.y + Math.sin(game.elapsed * 5 + s.x * .04) * 1.7;
+      if (!s.type) { medkit(x, y); continue; }
+      if (s.type === 'ammo') { ammoBox(x, y); continue; }
       const color = s.type === 'grenade' ? '#ffb831' : WEAPONS[s.type]?.color ?? '#56deb2';
       oval(x, y + 11, 23, 16, color + '55');
       round(x - 18, y - 1, 36, 24, 7, '#173e53');
@@ -458,7 +507,7 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#192d45';
       ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(({grenade:'炸弹',spread:'霰弹',pierce:'穿透',rapid:'疾射',heavy:'重击'})[s.type] ?? '补血', x, y + 15);
+      ctx.fillText(({grenade:'炸弹',spread:'霰弹',pierce:'穿透',rapid:'疾射',heavy:'重击'})[s.type] ?? '', x, y + 15);
     }
     for (const food of game.food) {
       if (!food.taken && office.visible(food, game.camera)) foodItem(food, game.elapsed);
@@ -466,6 +515,7 @@ export function createRenderer(canvas) {
     for (const e of game.enemies) if (office.visible(e, game.camera)) dog(e, game.elapsed);
     if (game.boss?.kind === 'mule') mule(game.boss, game.elapsed, game.camera);
     else dog(game.boss, game.elapsed, game.camera);
+    if (game.helper) helperNpc(game.helper, game.elapsed);
     for(const d of game.droppings) if(!d.destroyed)dropping(d);
     for(const w of game.waves) w.kind === 'logic' ? logicWave(w, game.elapsed) : headphone(w,game.elapsed);
     for(const s of game.enemyShots) headphone(s,game.elapsed);
