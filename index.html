@@ -19,7 +19,7 @@
     <header class="hud" id="hud" hidden>
       <div class="hud-left">
         <span class="level-name" id="level-name"></span>
-        <span class="score" id="score" aria-label="积分">积分 0</span>
+        <span class="score" id="score-display" aria-label="积分 0"><span aria-hidden="true">🏆</span> <span id="score">0</span></span>
         <span class="health" id="health" aria-label="生命"></span>
         <span id="equipment"></span>
         <span class="lives" id="lives" aria-label="剩余命数"></span>
@@ -45,6 +45,36 @@
         <span class="chapter" id="menu-chapter">第一关 · 桌面醒来</span>
         <h1 id="menu-title">公司打狗</h1>
         <p id="menu-message">你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。</p>
+        <section id="stage-summary" class="stage-summary" aria-label="本段统计" hidden>
+          <div class="summary-grid">
+            <div class="summary-card">
+              <h2>当前状态</h2>
+              <p id="summary-character"></p>
+              <p id="summary-health"></p>
+              <p id="summary-weapon"></p>
+              <p id="summary-grenades"></p>
+              <p id="summary-score"></p>
+            </div>
+            <div class="summary-card">
+              <h2>战斗记录</h2>
+              <p id="summary-enemies"></p>
+              <p id="summary-projectiles"></p>
+              <p id="summary-pickups"></p>
+              <p id="summary-bosses"></p>
+            </div>
+            <div class="summary-card food-summary">
+              <h2>食品收集 <span id="summary-food-total"></span></h2>
+              <div id="summary-food-list" class="summary-food-list"></div>
+            </div>
+            <div class="summary-card">
+              <h2>本段积分</h2>
+              <p id="summary-points"></p>
+              <p id="summary-score-detail"></p>
+              <p id="summary-time"></p>
+            </div>
+          </div>
+          <p id="reward-prompt" class="reward-prompt">选择一项奖励，进入下一段</p>
+        </section>
         <div id="character-select" class="character-select" role="group" aria-label="选择角色">
           <p class="character-prompt">请选择出战角色 <span>点击人物选择，再开始游戏</span></p>
           <div class="character-grid">

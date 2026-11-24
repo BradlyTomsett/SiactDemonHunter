@@ -1,6 +1,6 @@
 import { createGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
-import { CHARACTERS, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
+import { CHARACTERS, FOOD_TYPES, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
 import { drawCharacterPortraits } from "./portraits.mjs";
 
@@ -16,6 +16,7 @@ const pauseButton = byId("pause");
 const overlay = byId("overlay");
 const rewards = byId("rewards");
 const characterSelect = byId("character-select");
+const stageSummary = byId("stage-summary");
 const primary = byId("primary");
 const guide = byId("guide");
 const home = byId("home");
@@ -83,6 +84,7 @@ function syncVisibility() {
 
 function panel(next, title, message, label, action) {
   rewards.hidden = true;
+  stageSummary.hidden = true;
   characterSelect.hidden = next !== 'title';
   primary.hidden = false;
   byId("menu-title").textContent = title;
@@ -170,7 +172,8 @@ function showNotice(message) {
 function updateHud() {
   const hp = game.player.health;
   const weapon = WEAPONS[game.player.weapon];
-  byId('score').textContent = `积分 ${game.score}`;
+  byId('score').textContent = game.score;
+  byId('score-display').setAttribute('aria-label', `积分 ${game.score}`);
   const grenades = game.player.grenades === Infinity ? '∞' : `${game.player.grenades}/6`;
   byId('equipment').textContent = `${CHARACTERS[game.characterId].name} · ${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  炸弹 ${grenades}${game.player.boost > 0 ? ` 火力提升 ${Math.ceil(game.player.boost)}秒` : ''}`;
   if (hp !== previousHealth) {
@@ -202,6 +205,36 @@ function updateHud() {
   if (hint.textContent !== message) hint.textContent = message;
 }
 
+function showStageSummary(finalStage) {
+  const player = game.player;
+  const stats = game.stats;
+  const amount = value => value === Infinity ? '无限' : String(value);
+  const foodTotal = Object.values(stats.foodCounts).reduce((sum, count) => sum + count, 0);
+  const details = stats.scoreByType;
+  byId('summary-character').textContent = `角色：${CHARACTERS[game.characterId].name} · 剩余命数：${game.lives + 1}`;
+  byId('summary-health').textContent = `生命：${player.health} / ${player.maxHealth}`;
+  byId('summary-weapon').textContent = `武器：${WEAPONS[player.weapon].name} · 弹药：${amount(player.ammo)}`;
+  byId('summary-grenades').textContent = `手榴弹：${amount(player.grenades)}${player.boost > 0 ? ` · 火力提升剩余 ${Math.ceil(player.boost)} 秒` : ''}`;
+  byId('summary-score').textContent = `🏆 总积分：${game.score}`;
+  byId('summary-enemies').textContent = `击败小兵：${stats.enemyKills} 只`;
+  byId('summary-projectiles').textContent = `击落首领投掷物：${stats.bossProjectiles} 个`;
+  byId('summary-pickups').textContent = `拾取道具：${stats.pickups} 个`;
+  byId('summary-bosses').textContent = `击败 BOSS：${stats.bosses.length} 个${stats.bosses.length ? ` · ${stats.bosses.join('、')}` : ' · 无'}`;
+  byId('summary-food-total').textContent = `${foodTotal} / ${game.level.food.length}`;
+  const foodList = byId('summary-food-list');
+  foodList.replaceChildren();
+  for (const type of FOOD_TYPES) {
+    const item = document.createElement('span');
+    item.textContent = `${type} × ${stats.foodCounts[type] ?? 0}`;
+    foodList.append(item);
+  }
+  byId('summary-points').textContent = `本段获得 ${game.score - stats.startScore} 分`;
+  byId('summary-score-detail').textContent = `小兵 ${details.enemies} · BOSS ${details.bosses} · 投掷物 ${details.projectiles} · 食品 ${details.food} · 道具 ${details.pickups}`;
+  byId('summary-time').textContent = `本段用时 ${timeText(game.elapsed)}`;
+  byId('reward-prompt').hidden = finalStage;
+  stageSummary.hidden = false;
+}
+
 function finish() {
   if (game.status === "lost") {
     panel(
@@ -230,6 +263,7 @@ function finish() {
         start();
       },
     );
+    showStageSummary(false);
     primary.hidden = true;
     rewards.hidden = false;
     const ammoButton = rewards.querySelector('[data-reward="ammo"]');
@@ -246,6 +280,7 @@ function finish() {
         start();
       },
     );
+    showStageSummary(true);
   }
 }
 

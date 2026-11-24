@@ -428,7 +428,8 @@ export function createRenderer(canvas) {
       ctx.fillStyle = '#5c2525';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`${boss.label} · ${boss.coat.name}${boss.total > 1 ? ` · ${boss.number}/${boss.total}` : ''}`, 320, 69.5);
+      const variant = boss.coat?.name ? ` · ${boss.coat.name}` : '';
+      ctx.fillText(`${boss.label}${variant}${boss.total > 1 ? ` · ${boss.number}/${boss.total}` : ''}`, 320, 69.5);
     }
   };
 }

@@ -13,6 +13,11 @@ export function createGame(level, options = {}) {
     bosses: [], boss: null, clearedBosses: 0,
     score: options.score ?? 0, collectedFood: new Set(), food: [],
     characterId: CHARACTERS[options.characterId] ? options.characterId : 'minister',
+    stats: {
+      startScore: options.score ?? 0, enemyKills: 0, bosses: [],
+      foodCounts: {}, pickups: 0, bossProjectiles: 0,
+      scoreByType: { enemies: 0, bosses: 0, projectiles: 0, food: 0, pickups: 0 },
+    },
   };
   resetLevel(game, -1, options.carry);
   return game;
@@ -70,7 +75,8 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     w: cfg.width, h: cfg.height,
     health: cfg.health, maxHealth: cfg.health, speech: 0, coat: cfg.coat,
     state: 'waiting', timer: 0, attack: 'dash', direction: -1, flash: 0, attackIndex: 0, dashLeft: 0,
-    label: cfg.label, number: index + 1, total: configs.length, cfg,
+    label: cfg.displayName ?? cfg.name ?? cfg.label ?? '未知首领',
+    number: index + 1, total: configs.length, cfg,
   }));
   // 死亡重来时，已经打赢的 BOSS 保持倒地，否则会被迫回头重打。
   for (let i = 0; i < game.clearedBosses && i < game.bosses.length; i++) {
@@ -179,9 +185,10 @@ function sparks(game, x, y, color, count) {
   }
 }
 
-function addScore(game, points) {
+function addScore(game, points, type) {
   const before = Math.floor(game.score / 100);
   game.score += points;
+  game.stats.scoreByType[type] += points;
   game.lives += Math.floor(game.score / 100) - before;
 }
 
@@ -190,9 +197,18 @@ function damageTarget(game, target, amount, flash) {
   target.health = Math.max(0, target.health - amount);
   target.flash = flash;
   if (target.health > 0) return;
-  if (target === game.boss) addScore(game, 30);
-  else if (game.enemies.includes(target)) addScore(game, 5);
-  else if (game.waves.includes(target)) addScore(game, 1);
+  if (target === game.boss) {
+    const name = target.cfg.displayName ?? target.cfg.name ?? target.label ?? '未知首领';
+    const variant = target.cfg.coat?.name;
+    game.stats.bosses.push(variant ? `${name}（${variant}）` : name);
+    addScore(game, 30, 'bosses');
+  } else if (game.enemies.includes(target)) {
+    game.stats.enemyKills += 1;
+    addScore(game, 5, 'enemies');
+  } else if (game.waves.includes(target)) {
+    game.stats.bossProjectiles += 1;
+    addScore(game, 1, 'projectiles');
+  }
   if (target !== game.boss) return;
 
   // 致命一击立即保存进度，倒地动画结束后才开放通道。
@@ -239,7 +255,7 @@ function stepShots(game, fire, dt) {
     const crumb = game.hazards.find(h => h.kind === 'crumb' && !h.destroyed && overlaps(h, sweep));
     if (crumb) { crumb.destroyed = true; sparks(game, crumb.x + crumb.w / 2, crumb.y, '#c79555', 7); return false; }
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
-    if (dropping) { dropping.destroyed = true; addScore(game, 1); sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
+    if (dropping) { dropping.destroyed = true; game.stats.bossProjectiles += 1; addScore(game, 1, 'projectiles'); sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < VIEW.height;
     damageTarget(game, enemy, bullet.damage, 0.12);
@@ -364,7 +380,7 @@ function stepGrenades(game, input, dt) {
       }
     }
     for (const drop of game.droppings) {
-      if (!drop.destroyed && inBlast(drop)) { drop.destroyed = true; addScore(game, 1); }
+      if (!drop.destroyed && inBlast(drop)) { drop.destroyed = true; game.stats.bossProjectiles += 1; addScore(game, 1, 'projectiles'); }
     }
     game.blasts.push({ x, y, radius, life: 0.36 });
     sparks(game, x, y, '#ff9e24', 16);
@@ -612,14 +628,16 @@ export function stepGame(game, input, dt) {
       p.health = Math.min(p.maxHealth, p.health + supply.amount);
     }
     supply.taken = true;
-    addScore(game, 1);
+    game.stats.pickups += 1;
+    addScore(game, 1, 'pickups');
     sparks(game, supply.x + 7, supply.y + 7, "#89e0ae", 7);
   }
   for (const food of game.food) {
     if (food.taken || !overlaps(p, food)) continue;
     food.taken = true;
     game.collectedFood.add(food.index);
-    addScore(game, 1);
+    game.stats.foodCounts[food.type] = (game.stats.foodCounts[food.type] ?? 0) + 1;
+    addScore(game, 1, 'food');
     sparks(game, food.x + 9, food.y + 10, "#ffd873", 5);
   }
   const gateOpen = game.bosses.every(boss => boss.state === 'defeated');

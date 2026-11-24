@@ -262,7 +262,7 @@ h1 {
 .rewards button {
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
   gap: 6px; min-height: 98px; padding: 8px 5px; border: 1px solid #79b9ac;
-  border-radius: 12px; background: #e8faf2; font-weight: 750; font-size: 13px;
+  border-radius: 12px; color: #173840; background: #e8faf2; font-weight: 750; font-size: 13px;
 }
 .reward-icon {
   display: grid; place-items: center; width: 44px; height: 44px; flex: none;
@@ -271,6 +271,43 @@ h1 {
 .life-icon { color: #c93254; background: #ffe2e8; }
 .boost-icon { color: #8b5400; background: #ffedb7; }
 .ammo-icon { color: #185c79; background: #d4eff9; }
+.game[data-screen="cleared"] .overlay {
+  display: block;
+  padding: 0;
+  background: #102f39;
+}
+.game[data-screen="cleared"] .panel {
+  width: 100%;
+  min-height: 100%;
+  padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(145deg, #103c43, #172b3b);
+  color: #f5faf1;
+  box-shadow: none;
+}
+.game[data-screen="cleared"] .chapter { color: #91dccc; }
+.game[data-screen="cleared"] h1 { color: #fff9e7; font-size: clamp(28px, 5vh, 44px); margin: 3px 0; }
+.game[data-screen="cleared"] #menu-message { color: #cde4db; font-size: 14px; }
+.stage-summary { margin-top: 12px; }
+.summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.summary-card {
+  min-width: 0; padding: 12px; border: 1px solid #78b5a855;
+  border-radius: 12px; background: #ffffff12;
+}
+.summary-card h2 { margin: 0 0 8px; color: #8ee4c9; font-size: 15px; }
+.summary-card h2 span { color: #f6d792; font-size: 13px; }
+.summary-card p { margin: 5px 0; color: #eef8f2; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.summary-food-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+.summary-food-list span { color: #eef8f2; font-size: 12px; line-height: 1.3; }
+.reward-prompt { margin: 14px 0 0; color: #f7d492; font-size: 15px; font-weight: 800; }
+.game[data-screen="cleared"] .rewards { max-width: 640px; margin-top: 8px; }
+.game[data-screen="cleared"] .rewards button { min-height: 80px; padding: 5px; }
+.game[data-screen="cleared"] .secondary { color: #173840; }
+.game[data-screen="cleared"] .menu-actions { margin-top: 12px; }
+@media (max-width: 700px) {
+  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .primary, .secondary {
   min-height: 44px;
   padding: 7px 16px;
