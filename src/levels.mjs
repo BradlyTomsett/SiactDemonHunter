@@ -393,9 +393,25 @@ for (const [index, level] of CHAPTERS.entries()) {
     coat: bossCoats[index],
     pattern: BOSS_PATTERNS[index],
   };
+  // 第 1 段结尾是一只骡子：技能只有「逻辑」声波，半血时喊一次「狗来」召唤 6 狗。
+  if (index === 1) {
+    Object.assign(level.boss, {
+      kind: 'mule',
+      label: '骡子',
+      coat: null,
+      warning: 0.9,
+      logicSpeed: 190,
+      summonAt: 0.5,
+      summonTime: 2.8,
+      summonHealth: 45,
+      summonPattern: 0,
+      summonCoat: bossCoats[0],
+      droppings: false,
+    });
+  }
   level.exit = { ...level.exit, x: arenaRight + 7 };
   if (level !== ch2) cp(level, arenaLeft - 48);
-  hint(level, arenaLeft - 10, '击败前方的 6 狗才能继续前进。');
+  hint(level, arenaLeft - 10, `击败前方的 ${level.boss.label} 才能继续前进。`);
 }
 
 // 把两段或多段拼成一段：坐标整体右移，BOSS 各自保留自己的竞技场，

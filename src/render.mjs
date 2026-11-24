@@ -237,6 +237,89 @@ export function createRenderer(canvas) {
     if(d.state==='rolling'){ctx.rotate(d.direction*0.16);ctx.translate(0,-1);}
     ctx.scale(s,s);
     oval(9,14,9,4,'#754023');oval(9,10,7,5,'#92512b');oval(10,6,5,4,'#a66332');oval(11,3,3,3,'#b77840');oval(7,10,1.2,1.2,'#fff1d2');oval(12,10,1.2,1.2,'#fff1d2');ctx.restore();}
+  function logicWave(wave, t) {
+    if (wave.health <= 0) return;
+    const cx = wave.x + wave.w / 2;
+    const cy = wave.y + wave.h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    round(-wave.w / 2, -wave.h / 2, wave.w, wave.h, 10, '#123049');
+    round(-wave.w / 2 + 2, -wave.h / 2 + 2, wave.w - 4, wave.h - 4, 9, '#2f7fb5');
+    // 拖尾的声波折线画在运动方向的后面
+    const trail = wave.direction > 0 ? -1 : 1;
+    ctx.strokeStyle = wave.flash > 0 ? '#fff6cf' : '#bfe9ff';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 2; i++) {
+      const bx = trail * (wave.w / 2 - 7 - i * 7);
+      ctx.beginPath();
+      ctx.moveTo(bx, -8);
+      ctx.lineTo(bx - trail * 5, 0);
+      ctx.lineTo(bx, 8);
+      ctx.stroke();
+    }
+    ctx.fillStyle = wave.flash > 0 ? '#fff6cf' : '#eaf7ff';
+    ctx.font = 'bold 15px "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('逻辑', -trail * 3, 1);
+    ctx.textBaseline = 'alphabetic';
+    ctx.restore();
+  }
+
+  // 骡子：技能只有「逻辑」声波，半血时喊一次「狗来」并退到后场。
+  function mule(b, t, camera) {
+    if (!b || b.state === 'waiting' || b.state === 'defeated' || b.state === 'hidden') return;
+    const summoning = b.state === 'summon';
+    ctx.save();
+    ctx.translate(b.x + b.w / 2, b.y);
+    ctx.scale(b.direction * b.w / 78, b.h / 64);
+    if (b.flash > 0) ctx.globalAlpha = 0.9;
+    // 腿
+    for (const x of [-16, -5, 8, 18]) line(x, 46, x, 59, '#6f7a85', 5);
+    for (const x of [-16, -5, 8, 18]) oval(x, 60, 4, 2.4, '#545e68');
+    // 尾巴
+    const tail = Math.sin(t * 5) * 3;
+    line(-27, 36, -34, 44 + tail, '#6f7a85', 3);
+    oval(-35, 47 + tail, 3, 5, '#4b545d');
+    // 身体
+    oval(-4, 38, 26, 15, '#9aa5af');
+    oval(-4, 43, 20, 9, '#828d98');
+    // 脖子 + 头
+    line(10, 34, 17, 16, '#9aa5af', 12);
+    oval(25, 13, 13, 11, '#a4afb9');
+    oval(37, 17, 9, 6, '#ccd2d7');
+    oval(39, 19, 2, 1.4, '#3d454d');
+    // 长耳朵
+    oval(18, -6, 3.6, 14, '#828d98');
+    oval(27, -8, 3.4, 14, '#9aa5af');
+    // 鬃毛
+    for (let y = 18; y < 38; y += 5) line(12, y, 9, y + 4, '#5c6570', 3);
+    // 眼睛和圆框眼镜
+    oval(30, 12, 2.4, 2.6, '#262d34');
+    ctx.strokeStyle = '#3f4a54';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(30, 12, 4.4, 0, Math.PI * 2);
+    ctx.stroke();
+    line(35, 11, 40, 10, '#3f4a54', 1.2);
+    ctx.restore();
+
+    if (summoning) {
+      const x = b.x + b.w / 2;
+      const y = b.y - 8;
+      ctx.save();
+      ctx.font = 'bold 36px "Microsoft YaHei", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = '#33160a';
+      ctx.strokeText('狗来', x, y);
+      ctx.fillStyle = '#ffdf6b';
+      ctx.fillText('狗来', x, y);
+      ctx.restore();
+    }
+  }
+
   function headphone(shot, t) {
     if (shot.health <= 0) return;
     ctx.save();
@@ -381,9 +464,10 @@ export function createRenderer(canvas) {
       if (!food.taken && office.visible(food, game.camera)) foodItem(food, game.elapsed);
     }
     for (const e of game.enemies) if (office.visible(e, game.camera)) dog(e, game.elapsed);
-    dog(game.boss, game.elapsed, game.camera);
+    if (game.boss?.kind === 'mule') mule(game.boss, game.elapsed, game.camera);
+    else dog(game.boss, game.elapsed, game.camera);
     for(const d of game.droppings) if(!d.destroyed)dropping(d);
-    for(const w of game.waves) headphone(w,game.elapsed);
+    for(const w of game.waves) w.kind === 'logic' ? logicWave(w, game.elapsed) : headphone(w,game.elapsed);
     for(const s of game.enemyShots) headphone(s,game.elapsed);
     for(const b of game.bullets) projectile(b);
     for(const g of game.grenades) grenade(g,game.elapsed);

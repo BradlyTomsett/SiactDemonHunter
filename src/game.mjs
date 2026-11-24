@@ -76,6 +76,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     health: cfg.health, maxHealth: cfg.health, speech: 0, coat: cfg.coat,
     state: 'waiting', timer: 0, attack: 'dash', direction: -1, flash: 0, attackIndex: 0, dashLeft: 0,
     label: cfg.displayName ?? cfg.name ?? cfg.label ?? '未知首领',
+    kind: cfg.kind ?? 'dog', summoned: false, hidden: false,
     number: index + 1, total: configs.length, cfg,
   }));
   // 死亡重来时，已经打赢的 BOSS 保持倒地，否则会被迫回头重打。
@@ -84,6 +85,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     game.bosses[i].health = 0;
   }
   game.boss = game.bosses.find(item => item.state !== 'defeated') ?? game.bosses[game.bosses.length - 1] ?? null;
+  game.summon = null;
   game.camera = clamp(spawnX - VIEW.width * 0.38, 0, Math.max(0, level.width - VIEW.width));
   game.status = "playing";
   game.reason = "";
@@ -195,6 +197,8 @@ function addScore(game, points, type) {
 
 function damageTarget(game, target, amount, flash) {
   if (target.health <= 0) return;
+  // 骡子喊「狗来」和躲在后场的期间打不掉。
+  if (target === game.boss && (target.state === 'summon' || target.state === 'hidden')) return;
   target.health = Math.max(0, target.health - amount);
   target.flash = flash;
   if (target.health > 0) return;
@@ -211,6 +215,14 @@ function damageTarget(game, target, amount, flash) {
     addScore(game, 1, 'projectiles');
   }
   if (target !== game.boss) return;
+
+  // 召唤出来的 6 狗不算「第 N 只首领」，否则死亡回退时会把骡子一起算成已击败。
+  if (target.summoned) {
+    target.state = 'dying';
+    target.timer = 2.25;
+    game.waves = [];
+    return;
+  }
 
   // 致命一击立即保存进度，倒地动画结束后才开放通道。
   game.clearedBosses += 1;
@@ -399,6 +411,7 @@ function stepBoss(game, dt) {
   if (!boss) return false;
   const cfg = boss.cfg;
   if (!cfg || boss.state === 'defeated') return false;
+  if (boss.kind === 'mule') return stepMule(game, boss, cfg, dt);
   if (boss.state === 'waiting') {
     const previousCleared = game.bosses.slice(0, boss.number - 1).every(item => item.state === 'defeated');
     if (!previousCleared || game.player.x < cfg.trigger) return false;
@@ -490,6 +503,139 @@ function stepBoss(game, dt) {
   return false;
 }
 
+// ── 骡子：技能只有「逻辑」声波 + 半血时一次「狗来」召唤 ─────────────────────
+function spawnLogicWave(game, boss, cfg) {
+  const w = 56;
+  const h = 34;
+  const x = boss.direction < 0 ? boss.x - w - 4 : boss.x + boss.w + 4;
+  game.waves.push({
+    x, y: cfg.ground - h, w, h,
+    direction: boss.direction,
+    health: 2, maxHealth: 2, flash: 0,
+    kind: 'logic',
+    speed: cfg.logicSpeed ?? 190,
+  });
+}
+
+// 召唤出来的 6 狗：和游戏里第一只 6 狗同样的血量、招式和外观。
+function createSummon(game, mule, cfg) {
+  const dogCfg = {
+    ...cfg,
+    kind: 'dog',
+    label: '6狗',
+    coat: cfg.summonCoat ?? null,
+    pattern: cfg.summonPattern ?? 0,
+    health: cfg.summonHealth ?? 45,
+    droppings: true,
+  };
+  const dog = {
+    x: cfg.arenaLeft + 120, y: cfg.ground - cfg.height,
+    w: cfg.width, h: cfg.height,
+    health: dogCfg.health, maxHealth: dogCfg.health,
+    speech: 0, coat: dogCfg.coat, state: 'intro', timer: 1.2,
+    attack: 'dash', direction: -1, flash: 0, attackIndex: 0, dashLeft: 0,
+    label: '6狗', kind: 'dog', summoned: true, hidden: false,
+    number: mule.number, total: mule.total, cfg: dogCfg,
+  };
+  game.bosses.push(dog);
+  game.summon = dog;
+  game.dropTimer = 1.4;
+  return dog;
+}
+
+function stepMule(game, boss, cfg, dt) {
+  const player = game.player;
+  boss.flash = Math.max(0, boss.flash - dt);
+  boss.timer -= dt;
+
+  if (boss.state === 'dying') {
+    if (boss.timer <= 0) {
+      boss.state = 'defeated';
+      const next = game.bosses.find(item => item.state !== 'defeated');
+      if (next) game.boss = next;
+    }
+    return false;
+  }
+
+  if (boss.state === 'waiting') {
+    const previousCleared = game.bosses.slice(0, boss.number - 1).every(item => item.state === 'defeated');
+    if (!previousCleared || player.x < cfg.trigger) return false;
+    boss.state = 'intro';
+    boss.timer = cfg.intro;
+  }
+
+  // 喊「狗来」：期间不攻击、打不掉，喊完躲到后场。
+  if (boss.state === 'summon') {
+    if (boss.timer <= 0) {
+      boss.state = 'hidden';
+      boss.hidden = true;
+      boss.x = cfg.arenaRight + 40;
+      game.boss = createSummon(game, boss, cfg);
+      game.waves = [];
+    }
+    return false;
+  }
+
+  // 躲在后场：等召唤出来的 6 狗倒下再回来。
+  if (boss.state === 'hidden') {
+    const dog = game.summon;
+    if (!dog || dog.state === 'defeated') {
+      boss.hidden = false;
+      boss.state = 'intro';
+      boss.timer = 1.4;
+      boss.x = cfg.arenaLeft + 30;
+      boss.y = cfg.ground - boss.h;
+      game.summon = null;
+      game.boss = boss;
+    }
+    return false;
+  }
+
+  if (!boss.summoned && boss.health <= boss.maxHealth * (cfg.summonAt ?? 0.5)) {
+    boss.summoned = true;
+    boss.state = 'summon';
+    boss.timer = cfg.summonTime ?? 2.8;
+    game.waves = [];
+    return false;
+  }
+
+  boss.direction = player.x + player.w / 2 < boss.x + boss.w / 2 ? -1 : 1;
+  if (boss.state === 'intro') {
+    boss.x = approach(boss.x, cfg.spawnX, 80 * dt);
+    if (boss.timer <= 0) { boss.state = 'warnLogic'; boss.timer = cfg.warning; }
+  } else if (boss.state === 'warnLogic') {
+    if (boss.timer <= 0) {
+      spawnLogicWave(game, boss, cfg);
+      boss.state = 'recover';
+      boss.timer = cfg.recovery;
+    }
+  } else if (boss.state === 'recover') {
+    if (boss.timer <= 0) { boss.state = 'warnLogic'; boss.timer = cfg.warning; }
+  }
+
+  if (player.invincible <= 0 && overlaps(player, boss)) {
+    if (damagePlayer(game, boss, cfg.damage)) return true;
+    separateBoss(game, player, boss, cfg);
+  }
+
+  const remainingWaves = [];
+  for (const wave of game.waves) {
+    wave.flash = Math.max(0, wave.flash - dt);
+    wave.x += wave.direction * (wave.speed ?? cfg.logicSpeed ?? cfg.waveSpeed) * dt;
+    if (wave.health <= 0) {
+      sparks(game, wave.x + wave.w / 2, wave.y + wave.h / 2, '#8fd8ff', 12);
+      continue;
+    }
+    if (overlaps(player, wave)) {
+      if (damagePlayer(game, wave, cfg.damage)) return true;
+      continue;
+    }
+    if (wave.x > cfg.arenaLeft - 70 && wave.x < cfg.arenaRight + 70) remainingWaves.push(wave);
+  }
+  game.waves = remainingWaves;
+  return false;
+}
+
 // 受伤时优先推向最近的空地，无敌期间可穿过 Boss，避免被追着挤回墙角。
 function separateBoss(game, player, boss, arena) {
   const left = boss.x - player.w - 0.5;
@@ -506,8 +652,10 @@ function separateBoss(game, player, boss, arena) {
 
 function stepDroppings(game, dt) {
   const boss = game.boss;
-  if (!boss || ['waiting', 'dying', 'defeated'].includes(boss.state)) { game.droppings = []; return false; }
+  if (!boss || ['waiting', 'dying', 'defeated', 'summon', 'hidden'].includes(boss.state)) { game.droppings = []; return false; }
   const cfg = boss.cfg;
+  // 骡子自己不打屎，只有它召唤的 6 狗才吃。
+  if (cfg?.droppings === false) { game.droppings = []; return false; }
   boss.speech = Math.max(0, boss.speech - dt);
   game.dropTimer -= dt;
   if (game.dropTimer <= 0) {
