@@ -429,15 +429,28 @@ function stepGrenades(game, input, dt) {
     game.grenades.push({ x: p.x + p.w / 2 - 5, y: p.y + 8, w: 10, h: 10, vx: p.facing * 210, vy: -250, fuse: GRENADE.fuse, spin: 0 });
   }
   game.grenades = game.grenades.filter(g => {
+    const oldX = g.x;
     const oldY = g.y;
     g.vy += 650 * dt;
     g.x += g.vx * dt;
     g.y += g.vy * dt;
     g.spin += g.vx * dt * 0.045;
-    for (const solid of game.platforms) {
-      if (solid.oneway) continue;
-      if (g.vy > 0 && oldY + g.h <= solid.y && g.y + g.h >= solid.y && g.x + g.w > solid.x && g.x < solid.x + solid.w) {
-        g.y = solid.y - g.h; g.vy = -Math.abs(g.vy) * 0.28; g.vx *= 0.7;
+    if (g.vy > 0) {
+      // 单向平台允许炸弹从下方飞过，落下时和普通地面一样反弹。
+      let landing = null;
+      const oldBottom = oldY + g.h;
+      const fall = g.y - oldY;
+      for (const platform of game.platforms) {
+        if (platform.y < oldBottom || platform.y > oldBottom + fall) continue;
+        const progress = (platform.y - oldBottom) / fall;
+        const xAtImpact = oldX + (g.x - oldX) * progress;
+        if (xAtImpact + g.w <= platform.x || xAtImpact >= platform.x + platform.w) continue;
+        if (!landing || platform.y < landing.y) landing = platform;
+      }
+      if (landing) {
+        g.y = landing.y - g.h;
+        g.vy *= -0.28;
+        g.vx *= 0.7;
       }
     }
     g.fuse -= dt;
