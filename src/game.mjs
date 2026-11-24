@@ -598,7 +598,33 @@ function stepBoss(game, dt) {
   return false;
 }
 
-// ── 骡子：技能只有「逻辑」声波 + 半血时一次「狗来」召唤 ─────────────────────
+// 骡子的攻击顺序固定，玩家可以记住前摇并反击。
+const muleAttacks = ['dash', 'kick', 'logic', 'leap', 'manure'];
+
+function warnMuleAttack(boss, player) {
+  const side = player.x + player.w / 2 < boss.x + boss.w / 2 ? -1 : 1;
+  boss.attack = muleAttacks[boss.attackIndex++ % muleAttacks.length];
+  boss.direction = boss.attack === 'kick' ? -side : side;
+  boss.state = 'muleWindup';
+  boss.timer = boss.attack === 'logic' ? boss.cfg.warning : .65;
+}
+
+function startMuleAttack(game, boss, cfg) {
+  if (boss.attack === 'logic') spawnLogicWave(game, boss, cfg);
+  if (boss.attack === 'manure' && game.droppings.length < DROPPINGS.max) {
+    const size = DROPPINGS.size;
+    const rear = boss.direction === 1 ? boss.x - size : boss.x + boss.w;
+    game.droppings.push({
+      x: clamp(rear, cfg.arenaLeft, cfg.arenaRight - size),
+      y: cfg.ground - size - 20, w: size, h: size,
+      speed: 125, state: 'falling', direction: -boss.direction,
+    });
+  }
+  boss.state = 'muleAttack';
+  boss.attackDuration = { dash: .84, kick: .27, logic: .34, leap: 1.03, manure: .4 }[boss.attack];
+  boss.timer = boss.attackDuration;
+}
+
 function spawnLogicWave(game, boss, cfg) {
   const w = 46;
   const h = boss.h;
@@ -677,6 +703,7 @@ function stepMule(game, boss, cfg, dt) {
       boss.x = cfg.arenaRight + 40;
       game.boss = createSummon(game, boss, cfg);
       game.waves = [];
+      game.droppings = [];
     }
     return false;
   }
@@ -697,26 +724,48 @@ function stepMule(game, boss, cfg, dt) {
     return false;
   }
 
-  if (!boss.summoned && boss.health <= boss.maxHealth * (cfg.summonAt ?? 0.5)) {
-    boss.summoned = true;
+  if (!boss.calledDog && boss.health <= boss.maxHealth * (cfg.summonAt ?? 0.5)) {
+    boss.calledDog = true;
     boss.state = 'summon';
     boss.timer = cfg.summonTime ?? 2.8;
+    boss.y = cfg.ground - boss.h;
     game.waves = [];
     return false;
   }
 
-  boss.direction = player.x + player.w / 2 < boss.x + boss.w / 2 ? -1 : 1;
   if (boss.state === 'intro') {
-    boss.x = approach(boss.x, cfg.spawnX, 80 * dt);
-    if (boss.timer <= 0) { boss.state = 'warnLogic'; boss.timer = cfg.warning; }
-  } else if (boss.state === 'warnLogic') {
-    if (boss.timer <= 0) {
-      spawnLogicWave(game, boss, cfg);
-      boss.state = 'recover';
-      boss.timer = cfg.recovery;
+    if (boss.timer <= 0) warnMuleAttack(boss, player);
+  } else if (boss.state === 'muleWindup') {
+    if (boss.timer <= 0) startMuleAttack(game, boss, cfg);
+  } else if (boss.state === 'muleAttack') {
+    const speed = boss.attack === 'dash' ? 260 : boss.attack === 'leap' ? 145 : 0;
+    boss.x = clamp(boss.x + boss.direction * speed * dt, cfg.arenaLeft, cfg.arenaRight - boss.w);
+    if (boss.attack === 'leap') {
+      const progress = 1 - Math.max(0, boss.timer) / boss.attackDuration;
+      boss.y = cfg.ground - boss.h - Math.sin(progress * Math.PI) * 76;
     }
-  } else if (boss.state === 'recover') {
-    if (boss.timer <= 0) { boss.state = 'warnLogic'; boss.timer = cfg.warning; }
+    if (boss.timer <= 0) {
+      boss.y = cfg.ground - boss.h;
+      boss.state = 'muleRecover';
+      boss.timer = .62;
+    }
+  } else if (boss.state === 'muleRecover' && boss.timer <= 0) {
+    boss.state = 'muleWalk';
+    boss.timer = .88;
+    // 移到玩家附近，但留出后踢及其他招式的反应距离。
+    const side = player.x < boss.x ? -1 : 1;
+    boss.walkTarget = clamp(player.x - boss.w / 2 - side * 56, cfg.arenaLeft + 10, cfg.arenaRight - boss.w - 10);
+  } else if (boss.state === 'muleWalk') {
+    if (boss.timer <= 0) warnMuleAttack(boss, player);
+    else {
+      if (boss.x !== boss.walkTarget) boss.direction = Math.sign(boss.walkTarget - boss.x);
+      boss.x = approach(boss.x, boss.walkTarget, cfg.walkSpeed * dt);
+    }
+  }
+
+  if (boss.state === 'muleAttack' && boss.attack === 'kick' && player.invincible <= 0) {
+    const rear = { x: boss.direction === 1 ? boss.x - 48 : boss.x + boss.w, y: cfg.ground - 43, w: 48, h: 39 };
+    if (overlaps(player, rear) && damagePlayer(game, rear, cfg.damage)) return true;
   }
 
   if (player.invincible <= 0 && boss.state !== 'intro' && overlaps(player, boss)) {
@@ -760,11 +809,9 @@ function stepDroppings(game, dt) {
   const boss = game.boss;
   if (!boss || ['waiting', 'dying', 'defeated', 'summon', 'hidden', 'enter'].includes(boss.state)) { game.droppings = []; return false; }
   const cfg = boss.cfg;
-  // 骡子自己不打屎，只有它召唤的 6 狗才吃。
-  if (cfg?.droppings === false) { game.droppings = []; return false; }
   boss.speech = Math.max(0, boss.speech - dt);
   game.dropTimer -= dt;
-  if (game.dropTimer <= 0) {
+  if (cfg.droppings !== false && game.dropTimer <= 0) {
     if (game.droppings.length >= DROPPINGS.max) {
       // 场上已经满了，先不投，等玩家清掉一坨再继续。
       game.dropTimer = 0.8;
@@ -793,7 +840,7 @@ function stepDroppings(game, dt) {
       else if (item.x >= right) { item.x = right; item.direction = -1; }
     } else {
       item.y += item.speed * dt;
-      if (overlaps(item, boss)) {
+      if (boss.kind !== 'mule' && overlaps(item, boss)) {
         boss.health = Math.min(boss.maxHealth, boss.health + DROPPINGS.heal);
         boss.speech = 2.4;
         return false;
@@ -962,7 +1009,10 @@ export function stepGame(game, input, dt) {
   const gateOpen = game.bosses.every(boss => boss.state === 'defeated');
   if (gateOpen && game.status === "playing" && overlaps(p, game.level.exit)) game.status = "cleared";
 
-  const target = clamp(p.x - VIEW.width * 0.38, 0, Math.max(0, game.level.width - VIEW.width));
+  const arena = game.boss?.cfg;
+  const locked = arena?.framedArena && !gateOpen && game.boss.state !== 'waiting';
+  const cameraTarget = locked ? (arena.arenaLeft + arena.arenaRight - VIEW.width) / 2 : p.x - VIEW.width * .38;
+  const target = clamp(cameraTarget, 0, Math.max(0, game.level.width - VIEW.width));
   game.camera = approach(game.camera, target, 420 * dt);
   // 纵向关卡：镜头跟着往上抬，让上面的落点提前进画面。
   const targetY = clamp(p.y + p.h - VIEW.height * 0.66, 0, Math.max(0, levelHeight - VIEW.height));

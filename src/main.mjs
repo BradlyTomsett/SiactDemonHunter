@@ -532,7 +532,7 @@ function frame(now) {
       stepGame(game, input.read(), step);
       accumulator -= step;
     }
-    if (game.clearedBosses !== priorDefeats) speakLine('骡子救我！');
+    if (game.clearedBosses !== priorDefeats && priorBoss?.kind === 'dog') speakLine('骡子救我！');
     if (game.boss !== priorBoss && game.boss?.state === 'enter' && game.boss.summoned) {
       speakLine('骡子爹我来了！');
     }

@@ -15,8 +15,6 @@ export function createRenderer(canvas) {
   // 骡子的轮廓以脚底为基准，和首领碰撞框共用尺寸。
   const muleArt = {
     tail: new Path2D('M19 48 C9 47 6 54 7 64 Q2 69 6 75 Q13 73 12 65 Q11 56 21 55 Z'),
-    backLegs: new Path2D('M26 60 L37 61 L34 77 L37 78 L36 81 H24 L24 75 Z M59 61 L69 60 L71 77 L75 78 L75 81 H62 Z'),
-    legs: new Path2D('M19 56 L34 60 L29 70 L28 76 L33 78 L32 82 H18 L18 76 L21 68 Z M49 58 L63 57 L61 70 L63 76 L68 78 L68 82 H54 L52 76 Z'),
     body: new Path2D('M17 47 Q25 42 38 46 Q48 47 55 40 L67 38 L71 53 Q70 63 59 67 Q44 71 26 66 Q12 63 12 55 Q12 50 17 47 Z'),
     neck: new Path2D('M45 52 Q54 46 57 31 L70 30 Q79 41 71 56 Q64 63 54 60 Z'),
     mane: new Path2D('M49 52 L51 45 L45 46 L53 37 L49 37 L57 27 L55 24 L64 23 L73 31 L63 39 L55 50 Z'),
@@ -294,6 +292,14 @@ export function createRenderer(canvas) {
     if (!b || b.state === 'defeated' || b.state === 'hidden') return;
     const summoning = b.state === 'summon';
     const fallen = b.state === 'dying';
+    const attacking = b.state === 'muleAttack';
+    const windingUp = b.state === 'muleWindup';
+    const walking = ['muleWalk', 'returning'].includes(b.state) || (attacking && b.attack === 'dash');
+    const kick = b.attack === 'kick' && attacking;
+    const jump = b.attack === 'leap' && attacking;
+    const age = fallen ? Math.max(0, 2.25 - b.timer) : 0;
+    const knees = Math.min(1, age / .58);
+    const slump = Math.min(1, Math.max(0, age - .38) / .42);
     const hit = b.flash > 0;
     const outline = '#202a33';
     const paint = (path, color) => {
@@ -306,18 +312,45 @@ export function createRenderer(canvas) {
     };
 
     ctx.save();
-    oval(b.x + b.w / 2, b.y + b.h - 1, b.w * .45, 3, '#18273240');
+    oval(b.x + b.w / 2, b.cfg.ground - 1, b.w * .45, 3, '#18273240');
     ctx.translate(b.direction < 0 ? b.x + b.w : b.x, b.y + b.h);
-    const fall = fallen ? Math.min(1, Math.max(0, (2.25 - b.timer) * 3)) : 0;
     if (fallen) ctx.globalAlpha *= Math.min(1, Math.max(0, b.timer * 3));
-    ctx.scale(b.direction * b.w / 100, b.h / 82 * (1 - fall * .54));
+    ctx.scale(b.direction * b.w / 100, b.h / 82);
     ctx.translate(0, -82);
 
+    const stride = walking ? Math.sin(t * (attacking ? 24 : 13)) * 9 : 0;
+    const crouch = windingUp ? 3 : 0;
+    const leg = (x, rear, phase, color) => {
+      const push = stride * phase;
+      const extension = kick && rear ? 31 : 0;
+      const fold = jump ? 10 : 0;
+      const jointX = x + push * .4 - extension * .5 + knees * (rear ? 10 : -9);
+      const jointY = 69 + knees * 8 - extension * .7 - fold;
+      const hoofX = x + push - extension + knees * (rear ? -9 : 17);
+      const hoofY = 79 - Math.max(0, push * .6) - extension * .75 - fold;
+      line(x, 58 + knees * 14 + crouch, jointX, jointY, outline, 10);
+      line(jointX, jointY, hoofX, hoofY, outline, 9);
+      line(x, 58 + knees * 14 + crouch, jointX, jointY, color, 7);
+      line(jointX, jointY, hoofX, hoofY, color, 5);
+      line(hoofX - 3, hoofY, hoofX + 3, hoofY, '#252d36', 5);
+    };
+    leg(30, true, 1, '#4f5965');
+    leg(66, false, -1, '#4f5965');
+    leg(22, true, -1, '#727f8a');
+    leg(56, false, 1, '#727f8a');
+    if (kick) {
+      ctx.beginPath();
+      ctx.moveTo(-60, 63);
+      ctx.quadraticCurveTo(-35, 42, -6, 50);
+      ctx.strokeStyle = '#ffe29d';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    ctx.translate(42, 54 + 13 * knees + crouch);
+    ctx.rotate(.26 * slump - (kick ? .24 : 0) - (jump ? .1 : 0));
+    ctx.translate(-42, -54);
     paint(muleArt.tail, '#3d4651');
-    paint(muleArt.backLegs, '#4f5965');
-    paint(muleArt.legs, '#727f8a');
-    round(18, 77, 14, 5, 1, '#252d36');
-    round(54, 77, 14, 5, 1, '#252d36');
 
     const fur = ctx.createLinearGradient(0, 36, 0, 69);
     fur.addColorStop(0, hit ? '#f9c3a7' : '#b4c2cb');
@@ -327,7 +360,7 @@ export function createRenderer(canvas) {
     line(21, 52, 39, 53, '#d8e2e685', 1.6);
 
     ctx.save();
-    const nod = summoning ? -0.12 : Math.sin(t * 4) * .035;
+    const nod = fallen ? .28 * slump : summoning ? -.12 : Math.sin(t * 4) * .035;
     ctx.translate(63, 44);
     ctx.rotate(nod);
     ctx.translate(-63, -44);
@@ -340,7 +373,7 @@ export function createRenderer(canvas) {
     paint(muleArt.muzzle, '#e4d7c9');
     paint(muleArt.forelock, '#293540');
     oval(93, 43, 1.9, 1.4, '#42404a');
-    if (summoning) oval(89, 49, 5.2, 2.6, '#4a3236');
+    if (summoning || (attacking && b.attack === 'logic')) oval(89, 49, 5.2, 2.6, '#4a3236');
     else line(86, 49, 94, 48, '#75606a', 1.2);
 
     // 琥珀色圆镜片和粗眉在手机的小画面里也能分辨。
@@ -381,6 +414,15 @@ export function createRenderer(canvas) {
     } else if (b.state === 'intro') {
       const speechX = Math.min(camera + W - 100, Math.max(camera + 100, b.x + b.w / 2));
       bubble('我给你讲讲这个逻辑', speechX, b.y - 10, '#4a2f1d', '#fff7df', '#cfae7e');
+    } else if (windingUp) {
+      const labels = { dash: '冲刺', kick: '后踢', logic: '逻辑', leap: '起跳', manure: '当心落物' };
+      ctx.save();
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      round(b.x + b.w / 2 - 35, b.y - 23, 70, 18, 6, '#513421');
+      ctx.fillStyle = '#ffe5a0';
+      ctx.fillText(labels[b.attack], b.x + b.w / 2, b.y - 10);
+      ctx.restore();
     }
   }
 
@@ -532,6 +574,18 @@ export function createRenderer(canvas) {
         ctx.fillText('↔', platform.x + platform.w / 2, platform.y + Math.min(platform.h - 2, 15));
       }
       ctx.restore();
+    }
+    const arena = game.boss?.cfg;
+    if (arena?.framedArena && !['waiting', 'defeated'].includes(game.boss.state)) {
+      const { arenaLeft, arenaRight, ground } = arena;
+      const top = cameraY + 82;
+      for (const x of [arenaLeft, arenaRight]) {
+        round(x - 4, top, 8, ground - top, 3, '#304a52cc');
+        line(x, top + 4, x, ground - 2, '#ffd77f', 2);
+        for (let y = top + 14; y < ground - 9; y += 23) line(x - 4, y + 4, x + 4, y - 4, '#ffd77f', 2);
+        round(x - 8, ground - 7, 16, 7, 2, '#304a52');
+      }
+      line(arenaLeft, top, arenaRight, top, '#ffda8788', 1);
     }
     // A soft ground shadow shows where the player is lined up to land.
     const p = game.player;

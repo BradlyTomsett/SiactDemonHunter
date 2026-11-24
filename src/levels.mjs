@@ -475,10 +475,12 @@ for (const level of CHAPTERS) {
     kind: spec.kind,
     label: spec.label,
   };
-  // 骡子：技能只有「逻辑」声波，半血时喊一次「狗来」召唤 6 狗。
+  // 骡子半血时喊一次「狗来」召唤 6 狗。
   if (spec.kind === 'mule') {
     Object.assign(level.boss, {
       warning: 0.9,
+      framedArena: true,
+      walkSpeed: 82,
       logicSpeed: DROPPINGS.rollSpeed,
       summonAt: 0.5,
       summonTime: 2.8,
