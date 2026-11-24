@@ -1,4 +1,4 @@
-import { GROUND, VIEW } from './levels.mjs';
+﻿import { GROUND, VIEW } from './levels.mjs';
 
 const { width: W, height: H } = VIEW;
 const BASES = new Set(['desk', 'floor', 'monitorTop', 'printerTop']);
@@ -27,11 +27,46 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     colors.forEach((color, i) => paint.addColorStop(i / (colors.length - 1), color));
     return paint;
   }
-  function visible(item, camera, margin = 6) {
-    return item.x + (item.w ?? 180) >= camera - margin && item.x <= camera + W + margin;
+  function visible(item, camera, cameraY = 0, margin = 6) {
+    const x = item.x;
+    const y = item.y ?? 0;
+    const w = item.w ?? 180;
+    const h = item.h ?? 60;
+    return x + w >= camera - margin && x <= camera + W + margin
+      && y + h >= cameraY - margin && y <= cameraY + H + margin;
   }
 
-  function background(camera, level) {
+  // 纵向关卡（工位攀登）用的墙面背景：随镜头上下滚动，不出现固定的天花板。
+  function tallWall(camera, cameraY) {
+    fill(0, 0, W, H, gradient(0, H, '#e7f7f0', '#c3e6da', '#a2d3c8'));
+    const panelH = 200;
+    const offsetX = -(camera * 0.16 % 240);
+    const offsetY = -(cameraY * 0.45 % panelH);
+    for (let y = offsetY - panelH; y < H + panelH; y += panelH) {
+      for (let x = offsetX - 240; x < W + 240; x += 240) {
+        fill(x + 16, y + 12, 208, 140, '#d3ece2');
+        fill(x + 20, y + 16, 200, 132, '#bfe2d6');
+        for (let row = y + 26; row < y + 140; row += 12) fill(x + 22, row, 196, 2, '#d9f0e6');
+        fill(x, y + 152, 240, 20, '#93c0b3');
+        fill(x, y + 152, 240, 3, '#e2f6ee');
+        oval(x + 30, y + 146, 13, 6, '#6ba98c');
+        oval(x + 22, y + 136, 7, 5, '#7fbf9c');
+        oval(x + 200, y + 144, 10, 5, '#6ba98c');
+      }
+    }
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    for (let y = offsetY - panelH; y < H + panelH; y += panelH) {
+      fill(0, y + 4, W, 3, '#ffffff');
+    }
+    ctx.restore();
+  }
+
+  function background(camera, cameraY = 0, level) {
+    if ((level?.height ?? H) > H) {
+      tallWall(camera, cameraY);
+      return;
+    }
     fill(0, 0, W, H, gradient(0, H, '#edfef8', '#c0e8dd', '#88cebd', '#54a9ab'));
     // 远处的巨大显示器和隔板只作为背景，留出清楚的跳跃轮廓。
     ctx.save();
@@ -99,6 +134,8 @@ export function createOfficeArt(ctx, { round, oval, line }) {
   }
 
   function gaps(level, camera) {
+    // 纵向关卡没有「地面缺口」这一说，直接不画。
+    if ((level.height ?? H) > H) return;
     let gaps = gapsByLevel.get(level);
     if (!gaps) {
       const bases = level.platforms.filter(item => BASES.has(item.kind)).sort((a, b) => a.x - b.x);
@@ -145,24 +182,24 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     };
     if (kind === 'desk') {
       const cabinet = Math.min(82, w * .26);
-      fill(x + 7, y + h - 1, 12, H - y - h + 1, gradient(y + h, 55, '#909ca5', '#394653'));
-      fill(end - 19, y + h - 1, 12, H - y - h + 1, '#65757f');
+      fill(x + 7, y + h - 1, 12, Math.max(0, H - y - h + 1), gradient(y + h, 55, '#909ca5', '#394653'));
+      fill(end - 19, y + h - 1, 12, Math.max(0, H - y - h + 1), '#65757f');
       round(end - cabinet - 25, y + h - 2, cabinet, 62, 3, gradient(y + h, 55, '#a78765', '#675546'));
       for (let i = 1; i <= 3; i++) {
         line(end - cabinet - 24, y + h + i * 13, end - 26, y + h + i * 13, '#42372e');
         round(end - cabinet / 2 - 28, y + h + i * 13 - 5, 8, 2, 1, '#c6b8a6');
       }
     } else if (kind === 'monitorTop') {
-      screen(x, y + 7, w, H - y + 2, camera);
+      screen(x, y + 7, w, Math.max(30, H - y + 2), camera);
     } else if (kind === 'printerTop') {
-      fill(x, y + h - 1, w, H - y - h + 1, gradient(y + h, 55, '#c7ced0', '#778b93'));
+      fill(x, y + h - 1, w, Math.max(0, H - y - h + 1), gradient(y + h, 55, '#c7ced0', '#778b93'));
       round(x + w * .1, y + 29, w * .73, 21, 4, '#202934');
       round(x + w * .16, y + 39, w * .52, 15, 2, '#ebede3');
       line(x + w * .19, y + 43, x + w * .65, y + 43, '#a4b2bc');
       round(end - 46, y + 29, 33, 13, 3, '#285066');
       oval(end - 18, y + 35, 2, 2, '#83f1b4');
     } else if (kind === 'floor') {
-      fill(x, y + h - 1, w, H - y - h + 1, gradient(y + h, 50, '#65707a', '#292f3a'));
+      fill(x, y + h - 1, w, Math.max(0, H - y - h + 1), gradient(y + h, 50, '#65707a', '#292f3a'));
     }
     fill(x, y, w, h, gradient(y, h, light, mid, dark));
 

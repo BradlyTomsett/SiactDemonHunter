@@ -445,12 +445,13 @@ export function createRenderer(canvas) {
   }
   return function render(game){
     ctx.setTransform(scale,0,0,scale,0,0);
-    office.background(game.camera, game.level);
+    const cameraY = game.cameraY ?? 0;
+    office.background(game.camera, cameraY, game.level);
     ctx.save();
-    ctx.translate(-game.camera,0);
+    ctx.translate(-Math.round(game.camera), -Math.round(cameraY));
     office.gaps(game.level, game.camera);
-    for (const d of game.level.decoration) if (office.visible(d, game.camera)) office.decoration(d, game.camera);
-    for (const p of game.level.platforms) if (office.visible(p, game.camera)) office.platform(p, game.camera);
+    for (const d of game.level.decoration) if (office.visible(d, game.camera, cameraY)) office.decoration(d, game.camera);
+    for (const p of game.level.platforms) if (office.visible(p, game.camera, cameraY)) office.platform(p, game.camera);
     // A soft ground shadow shows where the player is lined up to land.
     const p = game.player;
     const center = p.x + p.w / 2;
@@ -468,7 +469,7 @@ export function createRenderer(canvas) {
       ctx.restore();
     }
     for (const h of game.hazards) {
-      if (h.destroyed || !office.visible(h, game.camera)) continue;
+      if (h.destroyed || !office.visible(h, game.camera, cameraY)) continue;
       if (h.kind === 'spill') {
         oval(h.x + h.w / 2, h.y + h.h - 3, h.w / 2, 6, '#774735');
         line(h.x + 8, h.y + h.h - 7, h.x + h.w - 8, h.y + h.h - 7, '#e9bb87', 2);
@@ -485,16 +486,41 @@ export function createRenderer(canvas) {
       }
     }
     const firstPlatform = game.level.platforms.find(platform => platform.oneway);
-    if (firstPlatform && game.player.x < firstPlatform.x + firstPlatform.w && office.visible(firstPlatform, game.camera)) {
+    if ((game.level.height ?? 360) <= 360 && firstPlatform && game.player.x < firstPlatform.x + firstPlatform.w && office.visible(firstPlatform, game.camera, cameraY)) {
       const x = firstPlatform.x + firstPlatform.w / 2;
       const y = firstPlatform.y + 27 + Math.sin(game.elapsed * 4) * 3;
       round(x - 12, y - 12, 24, 23, 9, '#124958');
       ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = 'bold 20px sans-serif';
       ctx.fillText('↑', x, y + 6);
     }
+    // 纵向关卡的攀爬指引：给「下一级够得着的平台」画箭头（落差 ≤ 100、水平距离 ≤ 230）。
+    let guide = null;
+    let guideScore = Infinity;
+    const feet = game.player.y + game.player.h;
+    for (const platform of game.level.platforms) {
+      if (!platform.arrow) continue;
+      const dy = feet - platform.y;
+      if (dy <= 0 || dy > 100) continue;
+      const dx = Math.max(0, platform.x - (game.player.x + game.player.w), game.player.x - (platform.x + platform.w));
+      if (dx > 230) continue;
+      const score = dy * 2 + dx;
+      if (score < guideScore) { guideScore = score; guide = platform; }
+    }
+    if (guide) {
+      let ax = guide.x + guide.w / 2;
+      const ay = guide.y - 16 + Math.sin(game.elapsed * 4) * 3;
+      let glyph = '↑';
+      if (ax < game.camera + 18) { ax = game.camera + 18; glyph = '←'; }
+      else if (ax > game.camera + W - 18) { ax = game.camera + W - 18; glyph = '→'; }
+      round(ax - 11, ay - 11, 22, 21, 8, '#124958');
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.fillText(glyph, ax, ay + 6);
+    }
     if(game.bosses.every(boss=>boss.state==='defeated')){const e=game.level.exit;round(e.x-4,e.y-4,e.w+8,e.h+4,9,'#bbdbc4');round(e.x,e.y,e.w,e.h,7,'#416e68');ctx.fillStyle='#fff7d4';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('出口',e.x+e.w/2,e.y-8);}
     for (const s of game.supplies) {
-      if (s.taken || !office.visible(s, game.camera)) continue;
+      if (s.taken || !office.visible(s, game.camera, cameraY)) continue;
       const x = s.x + s.w / 2;
       const y = s.y + Math.sin(game.elapsed * 5 + s.x * .04) * 1.7;
       if (!s.type) { medkit(x, y); continue; }
@@ -510,9 +536,9 @@ export function createRenderer(canvas) {
       ctx.fillText(({grenade:'炸弹',spread:'霰弹',pierce:'穿透',rapid:'疾射',heavy:'重击'})[s.type] ?? '', x, y + 15);
     }
     for (const food of game.food) {
-      if (!food.taken && office.visible(food, game.camera)) foodItem(food, game.elapsed);
+      if (!food.taken && office.visible(food, game.camera, cameraY)) foodItem(food, game.elapsed);
     }
-    for (const e of game.enemies) if (office.visible(e, game.camera)) dog(e, game.elapsed);
+    for (const e of game.enemies) if (office.visible(e, game.camera, cameraY)) dog(e, game.elapsed);
     if (game.boss?.kind === 'mule') mule(game.boss, game.elapsed, game.camera);
     else dog(game.boss, game.elapsed, game.camera);
     if (game.helper) helperNpc(game.helper, game.elapsed);

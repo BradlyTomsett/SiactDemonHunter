@@ -1,4 +1,4 @@
-﻿import { createGame, restoreGame, stepGame } from "./game.mjs";
+import { createGame, restoreGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
 import { CHARACTERS, GRENADE, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
@@ -283,8 +283,10 @@ function updateHud() {
     previousLives = totalLives;
   }
   let entry;
+  const feet = game.player.y + game.player.h;
   for (const candidate of game.level.hints) {
-    if (game.player.x < candidate.x) break;
+    const passed = candidate.y === undefined ? game.player.x >= candidate.x : feet <= candidate.y;
+    if (!passed) break;
     entry = candidate;
   }
   const message = entry?.text ?? (touch.matches ? entry?.touch : entry?.desktop) ?? "";

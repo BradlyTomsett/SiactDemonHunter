@@ -88,6 +88,8 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   game.summon = null;
   game.helper = null;
   game.camera = clamp(spawnX - VIEW.width * 0.38, 0, Math.max(0, level.width - VIEW.width));
+  const levelHeight = level.height ?? VIEW.height;
+  game.cameraY = clamp(spawnY - VIEW.height * 0.66, 0, Math.max(0, levelHeight - VIEW.height));
   game.status = "playing";
   game.reason = "";
 }
@@ -97,6 +99,17 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
 function nearestCheckpoint(game, player) {
   const points = game.level.checkpoints || [];
   let index = -1;
+  // 纵向关卡按攀爬高度判断：只认已经爬到或爬过的检查点，取最高的那个。
+  if ((game.level.height ?? VIEW.height) > VIEW.height) {
+    let bestY = Infinity;
+    for (let i = 0; i < points.length; i++) {
+      if (player.y + player.h <= points[i].y + 6 && points[i].y < bestY) {
+        bestY = points[i].y;
+        index = i;
+      }
+    }
+    return index;
+  }
   for (let i = 0; i < points.length; i++) {
     if (points[i].x <= player.x + player.w / 2 && player.y + player.h <= points[i].y + 1) index = i;
   }
@@ -271,7 +284,7 @@ function stepShots(game, fire, dt) {
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
     if (dropping) { dropping.destroyed = true; game.stats.bossProjectiles += 1; addScore(game, 1, 'projectiles'); sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
-    if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < VIEW.height;
+    if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < (game.level.height ?? VIEW.height) + 12;
     damageTarget(game, enemy, bullet.damage, 0.12);
     bullet.hit.push(enemy);
     sparks(game, bullet.x + bullet.w / 2, bullet.y + bullet.h / 2, WEAPONS[bullet.kind]?.color ?? '#ffb52e', enemy.health === 0 ? 9 : 3);
@@ -353,7 +366,7 @@ function stepEnemies(game, dt) {
       damagePlayer(game, shot, 1);
       return false;
     }
-    return shot.x > -20 && shot.x < game.level.width + 20 && shot.y > -20 && shot.y < VIEW.height + 20;
+    return shot.x > -20 && shot.x < game.level.width + 20 && shot.y > -20 && shot.y < (game.level.height ?? VIEW.height) + 20;
   });
   if (game.respawns === respawns && game.status === "playing") game.enemyShots = remainingShots;
 }
@@ -377,7 +390,7 @@ function stepGrenades(game, input, dt) {
       }
     }
     g.fuse -= dt;
-    if (g.fuse > 0 && g.y < VIEW.height + 20) return true;
+    if (g.fuse > 0 && g.y < (game.level.height ?? VIEW.height) + 20) return true;
     const x = g.x + g.w / 2;
     const y = g.y + g.h / 2;
     const radius = GRENADE.radius;
@@ -415,7 +428,9 @@ function stepBoss(game, dt) {
   if (boss.kind === 'mule') return stepMule(game, boss, cfg, dt);
   if (boss.state === 'waiting') {
     const previousCleared = game.bosses.slice(0, boss.number - 1).every(item => item.state === 'defeated');
-    if (!previousCleared || game.player.x < cfg.trigger) return false;
+    // 纵向关卡里 BOSS 在顶上，光看横坐标会在塔底就触发，所以要同时看高度。
+    const nearArena = Math.abs((game.player.y + game.player.h) - cfg.ground) < 70;
+    if (!previousCleared || !nearArena || game.player.x < cfg.trigger) return false;
     boss.state = 'intro'; boss.timer = cfg.intro;
   }
   boss.flash = Math.max(0, boss.flash - dt);
@@ -775,7 +790,8 @@ export function stepGame(game, input, dt) {
   p.flash = Math.max(0, p.flash - dt);
   p.boost = Math.max(0, p.boost - dt);
   movePlayer(game, input, dt);
-  if (p.y > VIEW.height + 18) {
+  const levelHeight = game.level.height ?? VIEW.height;
+  if (p.y > levelHeight + 18) {
     die(game, "你跌下了桌面。");
     return;
   }
@@ -833,6 +849,9 @@ export function stepGame(game, input, dt) {
 
   const target = clamp(p.x - VIEW.width * 0.38, 0, Math.max(0, game.level.width - VIEW.width));
   game.camera = approach(game.camera, target, 420 * dt);
+  // 纵向关卡：镜头跟着往上抬，让上面的落点提前进画面。
+  const targetY = clamp(p.y + p.h - VIEW.height * 0.66, 0, Math.max(0, levelHeight - VIEW.height));
+  game.cameraY = approach(game.cameraY ?? 0, targetY, 460 * dt);
   game.blasts = game.blasts.filter(blast => (blast.life -= dt) > 0);
   game.sparks = game.sparks.filter(spark => {
     spark.x += spark.vx * dt;
