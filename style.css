@@ -220,7 +220,7 @@ h1 {
 #menu-message { margin: 0; color: #38565b; font-size: clamp(14px, 2vw, 17px); font-size: clamp(14px, 2cqw, 17px); line-height: 1.5; }
 .game[data-screen="title"] .overlay {
   justify-items: center;
-  background: #e9f5f1eb;
+  background: radial-gradient(circle at 50% 0%, #f8edcf, #c7e5df 70%);
 }
 .game[data-screen="title"] .panel {
   width: min(100%, 980px);
@@ -242,18 +242,19 @@ h1 {
 .character-card {
   position: relative; display: flex; flex-direction: column; align-items: stretch;
   gap: 5px; min-width: 0; padding: 6px; text-align: center;
-  border: 2px solid #bfd8cd; border-radius: 12px; background: #f7fbf6;
+  border: 2px solid #c2d9d1; border-radius: 14px; background: linear-gradient(160deg, #ffffff, #e9f5ef); box-shadow: 0 4px 12px #184a3d18; transition: transform .16s, box-shadow .16s, border-color .16s;
 }
-.character-card[aria-pressed="true"] { border-color: #008674; background: #dbf5ea; box-shadow: 0 0 0 2px #008674; }
+.character-card[aria-pressed="true"] { border-color: #008674; background: #e5fbf0; box-shadow: 0 0 0 2px #008674, 0 5px 16px #00867444; }
+.character-card:focus-visible { outline: 3px solid #e78e35; outline-offset: 2px; }
 .character-art {
   display: flex; align-items: center; justify-content: center; width: 100%;
-  height: clamp(64px, 20vmin, 150px); overflow: hidden; border-radius: 7px;
+  height: clamp(90px, 27vmin, 220px); overflow: hidden; border-radius: 9px;
 }
 .character-art.minister { background: linear-gradient(145deg, #cfeafb, #92c0db); }
 .character-art.manager { background: linear-gradient(145deg, #ffe7cd, #deb99b); }
 .character-art.ma { background: linear-gradient(145deg, #e2e9e3, #abbeb2); }
 .character-art .character-portrait {
-  width: auto; height: 100%; max-width: 100%; object-fit: contain; image-rendering: pixelated;
+  width: 100%; height: 100%; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 4px 4px #203b3340);
 }
 .character-card strong, .character-card small { display: block; }
 .character-card strong { font-size: clamp(14px, 2.8vh, 18px); font-size: clamp(14px, 2.8cqh, 18px); }
@@ -377,9 +378,20 @@ h1 {
 
 /* 舞台很矮（横屏手机、竖屏旋转）时收紧标题页，保证选角 + 选段一屏放得下。 */
 @container (max-height: 460px) {
+  .game[data-screen="title"] .panel {
+    display: grid; grid-template-columns: minmax(190px, .85fr) minmax(0, 1.65fr);
+    grid-template-areas: "chapter characters" "title characters" "stages characters" "actions characters";
+    gap: 3px 14px; align-items: start; padding: 10px 14px;
+  }
+  .game[data-screen="title"] .chapter { grid-area: chapter; }
+  .game[data-screen="title"] h1 { grid-area: title; }
+  .game[data-screen="title"] .character-select { grid-area: characters; }
+  .game[data-screen="title"] .stage-select { grid-area: stages; }
+  .game[data-screen="title"] .stage-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .game[data-screen="title"] .menu-actions { grid-area: actions; margin-top: 4px; }
   .game[data-screen="title"] #menu-message { display: none; }
   .game[data-screen="title"] .guide { display: none; }
-  .game[data-screen="title"] .character-art { height: clamp(48px, 15vmin, 110px); }
+  .game[data-screen="title"] .character-art { height: clamp(105px, 43cqh, 190px); }
   .game[data-screen="title"] .character-select,
   .game[data-screen="title"] .stage-select { margin-top: 6px; }
 }

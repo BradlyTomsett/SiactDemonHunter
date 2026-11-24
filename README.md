@@ -41,6 +41,7 @@ python -m http.server 8000 --bind 127.0.0.1
 | `src/render.mjs` | Canvas 像素场景、角色、怪物和命中特效。 |
 | `src/main.mjs` | 固定时间步、界面状态、暂停、重试和关卡切换。 |
 | `index.html`、`style.css` | 中文界面、横屏布局和触屏按钮。 |
+| `assets/character-minister.png`、`assets/character-manager.png`、`assets/character-ma.png` | 选人界面的三张原创角色立绘。 |
 
 ## GitHub Pages
 
