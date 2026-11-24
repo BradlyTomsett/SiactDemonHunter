@@ -655,3 +655,22 @@ export function stepGame(game, input, dt) {
     return spark.life > 0;
   });
 }
+
+// 从本地存档恢复一局：分数、命数、统计、食品、已击败的首领都要在重建关卡前设好。
+export function restoreGame(game, snapshot) {
+  if (!snapshot) return game;
+  if (Number.isFinite(snapshot.score)) game.score = snapshot.score;
+  if (Number.isFinite(snapshot.lives)) game.lives = snapshot.lives;
+  if (snapshot.stats) game.stats = snapshot.stats;
+  if (Array.isArray(snapshot.collectedFood)) game.collectedFood = new Set(snapshot.collectedFood);
+  if (Number.isFinite(snapshot.clearedBosses)) game.clearedBosses = snapshot.clearedBosses;
+  if (Number.isFinite(snapshot.elapsed)) game.elapsed = snapshot.elapsed;
+  const carry = snapshot.carry ? {
+    ...snapshot.carry,
+    ammo: snapshot.carry.ammo === "inf" ? Infinity : snapshot.carry.ammo,
+    grenades: snapshot.carry.grenades === "inf" ? Infinity : snapshot.carry.grenades,
+  } : null;
+  resetLevel(game, Number.isFinite(snapshot.checkpoint) ? snapshot.checkpoint : -1, carry);
+  game.player.invincible = Math.max(game.player.invincible, 1.2);
+  return game;
+}

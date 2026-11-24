@@ -1,8 +1,9 @@
-import { createGame, stepGame } from "./game.mjs";
+import { createGame, restoreGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
 import { CHARACTERS, FOOD_ICONS, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
 import { drawCharacterPortraits } from "./portraits.mjs";
+import { clearSave, makeSnapshot, readSave, writeSave } from "./save.mjs";
 
 const byId = id => document.getElementById(id);
 const render = createRenderer(byId("world"));
@@ -61,6 +62,7 @@ let previousHealth = -1;
 let previousLives = -1;
 let previousRespawns = 0;
 let noticeUntil = 0;
+let saveTimer = 0;
 let primaryAction = start;
 
 const input = createInput(controls, togglePause, () => screen === "playing");
@@ -129,8 +131,50 @@ function loadLevel(index, remainingLives, carry, score = 0) {
   updateHud();
 }
 
+// 把当前进度写进 localStorage，页面被系统回收后还能接着玩。
+function persist(extra = {}) {
+  if (!game) return;
+  writeSave(makeSnapshot(game, { levelIndex, completedTime, levelStartScore, ...extra }));
+}
+
+function clearProgress() {
+  saveTimer = 0;
+  clearSave();
+}
+
+function resumeFromSave(save) {
+  const index = Math.max(0, Math.min(LEVELS.length - 1, save.levelIndex ?? 0));
+  const next = save.nextLevel;
+  const target = Number.isFinite(next) ? Math.min(LEVELS.length - 1, next) : index;
+  selectedCharacter = CHARACTERS[save.characterId] ? save.characterId : "minister";
+  levelIndex = target;
+  completedTime = save.completedTime ?? 0;
+  levelStartScore = save.levelStartScore ?? 0;
+  const carry = save.carry ? {
+    ...save.carry,
+    ammo: save.carry.ammo === "inf" ? Infinity : save.carry.ammo,
+    grenades: save.carry.grenades === "inf" ? Infinity : save.carry.grenades,
+  } : null;
+  game = createGame(LEVELS[target], {
+    lives: save.lives ?? PLAYER.lives,
+    carry,
+    score: save.score ?? 0,
+    characterId: selectedCharacter,
+  });
+  if (!Number.isFinite(next)) restoreGame(game, save);
+  previousRespawns = game.respawns;
+  previousHealth = -1;
+  previousLives = -1;
+  byId("level-name").textContent = game.level.name;
+  updateHud();
+  setScreen("playing");
+  showNotice(`已继续上次进度：${game.level.name}`);
+  saveTimer = 2;
+}
+
 function showTitle() {
   completedTime = 0;
+  clearProgress();
   loadLevel(0, PLAYER.lives);
   panel(
     "title",
@@ -145,6 +189,8 @@ function start() {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   lockLandscape();
   setScreen("playing");
+  saveTimer = 2;
+  persist();
 }
 
 characterSelect.addEventListener('click', event => {
@@ -162,6 +208,7 @@ function pause(message = "点击继续，回到当前关卡。") {
   if (screen !== "playing") return;
   if (game.player.knockback <= 0) game.player.vx = 0;
   panel("paused", "已暂停", message, "继续游戏", resume);
+  persist();
 }
 
 function resume() {
@@ -276,6 +323,7 @@ function showStageSummary(finalStage) {
 
 function finish() {
   if (game.status === "lost") {
+    clearProgress();
     panel(
       "lost",
       "行动失败",
@@ -290,6 +338,8 @@ function finish() {
   }
   if (levelIndex < LEVELS.length - 1) {
     const nextLives = game.lives;
+    // 结算页被打断时，下次直接从下一段继续。
+    persist({ nextLevel: levelIndex + 1 });
     panel(
       "cleared",
       "本段通过",
@@ -320,6 +370,7 @@ function finish() {
       },
     );
     showStageSummary(true);
+    clearProgress();
   }
 }
 
@@ -336,6 +387,7 @@ rewards.addEventListener('click', event => {
   }
   completedTime += game.elapsed;
   loadLevel(levelIndex + 1, nextLives, carry, game.score);
+  persist();
   start();
 });
 
@@ -428,7 +480,13 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     input.clear();
     pause();
+    persist();
   }
+});
+window.addEventListener("pagehide", () => persist());
+window.addEventListener("pageshow", event => {
+  // 从 bfcache 恢复时补一次暂停，避免回来就被怪追着打。
+  if (event.persisted) pause();
 });
 
 function playDefeatVoice() {
@@ -454,6 +512,11 @@ function frame(now) {
     if (game.clearedBosses !== priorDefeats) playDefeatVoice();
     updateHud();
     if (game.status !== "playing") finish();
+    saveTimer -= seconds;
+    if (saveTimer <= 0) {
+      saveTimer = 2;
+      persist();
+    }
   }
   if (!notice.hidden && performance.now() > noticeUntil) notice.hidden = true;
   render(game);
@@ -461,7 +524,9 @@ function frame(now) {
 }
 
 applyOrientation();
-showTitle();
+const savedGame = readSave();
+if (savedGame) resumeFromSave(savedGame);
+else showTitle();
 updateDevice();
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(error => console.warn("离线功能注册失败", error));
