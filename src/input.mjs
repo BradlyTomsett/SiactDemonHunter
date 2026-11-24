@@ -27,11 +27,16 @@ export function createInput(controls, onPause, canPlay) {
     knob.style.transform = "translate(-50%, -50%)";
   }
 
+  const isRotated = () => document.documentElement.dataset.rotated === "1";
+
   function moveStick(event) {
     const rect = stick.getBoundingClientRect();
     const radius = rect.width * 0.36;
-    let x = (event.clientX - originX) / radius;
-    let y = (event.clientY - originY) / radius;
+    const dx = event.clientX - originX;
+    const dy = event.clientY - originY;
+    // 竖屏时画面整体旋转了 90°，屏幕坐标要先换算回游戏内的横屏坐标。
+    let x = (isRotated() ? dy : dx) / radius;
+    let y = (isRotated() ? -dx : dy) / radius;
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     knob.style.transform = `translate(calc(-50% + ${x * radius}px), calc(-50% + ${y * radius}px))`;
@@ -49,8 +54,12 @@ export function createInput(controls, onPause, canPlay) {
     originX = event.clientX;
     originY = event.clientY;
     const bounds = zone.getBoundingClientRect();
-    stick.style.left = `${originX - bounds.left}px`;
-    stick.style.top = `${originY - bounds.top}px`;
+    const dx = originX - (bounds.left + bounds.width / 2);
+    const dy = originY - (bounds.top + bounds.height / 2);
+    const localWidth = isRotated() ? bounds.height : bounds.width;
+    const localHeight = isRotated() ? bounds.width : bounds.height;
+    stick.style.left = `${localWidth / 2 + (isRotated() ? dy : dx)}px`;
+    stick.style.top = `${localHeight / 2 + (isRotated() ? -dx : dy)}px`;
     stick.hidden = false;
     zone.setPointerCapture(event.pointerId);
     moveStick(event);

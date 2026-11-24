@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="screen-orientation" content="landscape">
+  <meta name="x5-orientation" content="landscape">
   <meta name="theme-color" content="#eef9f5">
   <title>公司打狗</title>
   <link rel="manifest" href="./manifest.webmanifest">
@@ -11,6 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="./style.css">
+  <script>if (window.innerHeight > window.innerWidth) document.documentElement.dataset.rotated = "1";</script>
 </head>
 <body>
   <main class="game" aria-label="公司打狗">
@@ -82,7 +85,6 @@
         </div>
         <p id="install-status" class="install-status" role="status" hidden></p>
         <p class="guide" id="guide">方向键移动 · 空格跳跃 · J 开火</p>
-        <p class="orientation-hint" id="orientation-hint" hidden>建议横屏游玩，竖屏也可以直接开始。</p>
       </div>
     </section>
   </main>

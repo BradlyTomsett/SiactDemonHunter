@@ -22,7 +22,6 @@ const guide = byId("guide");
 const home = byId("home");
 const install = byId("install");
 const fullscreen = byId("fullscreen");
-const orientationHint = byId("orientation-hint");
 const gameView = byId("world").parentElement;
 let installPrompt = null;
 let installRequested = false;
@@ -30,8 +29,25 @@ const standalone = window.matchMedia('(display-mode: standalone)');
 const isAndroid = /Android/i.test(navigator.userAgent);
 const runsAsApp = () => standalone.matches || navigator.standalone === true;
 const touch = window.matchMedia("(pointer: coarse)");
-const portrait = window.matchMedia("(orientation: portrait)");
 const step = 1 / 120;
+
+// 只按横屏运行：手机竖着拿时，CSS 把整个游戏外壳旋转 90° 铺满屏幕，
+// 玩家把手机横过来后自动还原。这里只负责维护 html[data-rotated] 供输入换算使用。
+const portraitView = window.matchMedia("(orientation: portrait)");
+
+function applyOrientation() {
+  const rotated = portraitView.matches;
+  if (rotated) document.documentElement.dataset.rotated = "1";
+  else delete document.documentElement.dataset.rotated;
+}
+
+async function lockLandscape() {
+  try {
+    await screen.orientation?.lock?.("landscape");
+  } catch {
+    // 桌面浏览器和 iOS 不支持屏幕方向锁定，靠上面的旋转兜底。
+  }
+}
 
 let levelIndex = 0;
 let selectedCharacter = 'minister';
@@ -79,7 +95,6 @@ function syncVisibility() {
   hint.hidden = !active;
   notice.hidden = true;
   overlay.hidden = active;
-  orientationHint.hidden = screen !== "title" || !touch.matches || !portrait.matches;
 }
 
 function panel(next, title, message, label, action) {
@@ -128,6 +143,7 @@ function showTitle() {
 
 function start() {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  lockLandscape();
   setScreen("playing");
 }
 
@@ -330,7 +346,11 @@ document.addEventListener('fullscreenchange', syncFullscreenButton);
 fullscreen.addEventListener('click', async () => {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
-    else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+    else if (document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen();
+      await lockLandscape();
+      applyOrientation();
+    }
     else alert('当前浏览器不支持网页全屏。可使用“安装”将游戏添加到主屏幕，再从主屏幕打开以隐藏浏览器地址栏。');
   } catch (error) {
     alert('无法进入全屏。可使用“安装”将游戏添加到主屏幕，再从主屏幕打开。');
@@ -396,7 +416,10 @@ install.addEventListener('click', installGame);
 primary.addEventListener("click", () => primaryAction());
 home.addEventListener("click", showTitle);
 pauseButton.addEventListener("click", togglePause);
-for (const media of [touch, portrait]) media.addEventListener("change", updateDevice);
+for (const media of [touch]) media.addEventListener("change", updateDevice);
+window.addEventListener("resize", applyOrientation);
+window.addEventListener("orientationchange", applyOrientation);
+window.visualViewport?.addEventListener("resize", applyOrientation);
 window.addEventListener("blur", () => {
   input.clear();
   pause();
@@ -437,6 +460,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
+applyOrientation();
 showTitle();
 updateDevice();
 if ("serviceWorker" in navigator) {
