@@ -181,6 +181,18 @@ export function createRenderer(canvas) {
     furMarks(b.coat, false);
     if (!b.coat) oval(6, 34, 12, 12, '#edc399');
     if (b.type === 'gunner') line(-7, 30, 15, 31, '#226ec9', 4);
+    if (b.type === 'shielder') {
+      // 盾牌画在朝向玩家的一侧
+      round(14, 16, 7, 24, 3, '#6b4f2f');
+      round(15, 18, 5, 20, 2, '#c9a469');
+      line(15, 20, 15, 38, '#4f3a22', 1);
+    }
+    if (b.type === 'charger' && b.state === 'wind') {
+      ctx.save();
+      ctx.globalAlpha = 0.28 + 0.22 * Math.sin(t * 24);
+      oval(0, 32, 24, 15, '#ff6a3d');
+      ctx.restore();
+    }
     for (const [x, stride] of [[-13, gait], [13, -gait]]) {
       line(x, 35, x + stride, 45, b.coat?.dark ?? '#9b5d40', 7);
       oval(x + stride + 1, 46, 4.7, 2.5, b.coat?.light ?? '#e2a77e');
@@ -579,16 +591,23 @@ export function createRenderer(canvas) {
       for (let rung = y + 8; rung < y + h; rung += 12) line(x + 3, rung, x + w - 3, rung, '#e4c68a', 3);
     }
     for (const platform of game.platforms) {
+      if (platform.broken) continue;
       if (!office.visible(platform, game.camera, cameraY)) continue;
       ctx.save();
       // 攀爬关的平台可从下方穿过，用半透明的家具提示这一点。
       if (game.level.height > H && platform.oneway) ctx.globalAlpha = .76;
       office.platform(platform, game.camera);
+      if (platform.crumble && platform.crumbleTimer > platform.crumble.delay * 0.3) {
+        // 快塌了：书堆闪黄光提醒
+        ctx.globalAlpha = .25 + .3 * Math.sin(game.elapsed * 30);
+        ctx.fillStyle = '#ffd27a';
+        ctx.fillRect(platform.x, platform.y, platform.w, platform.h);
+      }
       if (platform.motion) {
         ctx.fillStyle = '#fff4c6';
         ctx.textAlign = 'center';
         ctx.font = 'bold 14px sans-serif';
-        ctx.fillText('↔', platform.x + platform.w / 2, platform.y + Math.min(platform.h - 2, 15));
+        ctx.fillText(platform.motion.axis === 'y' ? '↕' : '↔', platform.x + platform.w / 2, platform.y + Math.min(platform.h - 2, 15));
       }
       ctx.restore();
     }
@@ -707,6 +726,31 @@ export function createRenderer(canvas) {
     for(const g of game.grenades) grenade(g,game.elapsed);
     for(const blast of game.blasts) explosion(blast);
     player(game.player,game.elapsed);for(const s of game.sparks)oval(s.x,s.y,1.5,1.5,s.color);ctx.restore();
+    // 第 2 关断电：只剩角色周围一圈光，电缆火花是唯一光源。
+    if (game.blackout?.active) {
+      const px = game.player.x + game.player.w / 2 - Math.round(game.camera);
+      const py = game.player.y + game.player.h / 2 - Math.round(cameraY);
+      const radius = 118 + Math.sin(game.elapsed * 3) * 6;
+      const dark = ctx.createRadialGradient(px, py, 22, px, py, radius);
+      dark.addColorStop(0, 'rgba(6,14,20,0.06)');
+      dark.addColorStop(0.6, 'rgba(6,14,20,0.6)');
+      dark.addColorStop(1, 'rgba(4,10,16,0.94)');
+      ctx.fillStyle = dark;
+      ctx.fillRect(0, 0, W, H);
+      for (const h of game.hazards) {
+        if (h.kind !== 'cable' || h.destroyed) continue;
+        for (let x = h.x + 6; x < h.x + h.w; x += 18) {
+          const sx = x - Math.round(game.camera);
+          const sy = h.y + 6 - Math.round(cameraY);
+          if (sx < -80 || sx > W + 80) continue;
+          const glow = ctx.createRadialGradient(sx, sy, 1, sx, sy, 46);
+          glow.addColorStop(0, 'rgba(150,230,255,0.5)');
+          glow.addColorStop(1, 'rgba(150,230,255,0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(sx - 46, sy - 46, 92, 92);
+        }
+      }
+    }
     const boss = game.boss;
     if (boss && !['waiting', 'defeated'].includes(boss.state)) {
       round(208, 56, 224, 20, 10, '#963827');

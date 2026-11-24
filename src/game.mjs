@@ -53,7 +53,15 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     ammo: keep?.ammo ?? Infinity,
     grenades: character.infiniteGrenades ? Infinity : (keep?.grenades ?? 2), boost: keep?.boost ?? 0,
   };
-  game.platforms = level.platforms.map(platform => ({ ...platform, baseX: platform.x }));
+  game.platforms = level.platforms.map(platform => ({
+    ...platform,
+    baseX: platform.x,
+    baseY: platform.y,
+    crumbleTimer: 0,
+    broken: false,
+    respawnTimer: 0,
+  }));
+  game.blackout = { active: false, timer: 0, fired: false };
   game.enemies = level.enemies.map(makeEnemy);
   game.activeHordes = new Set();
   game.food = (level.food ?? []).map((item, index) => ({
@@ -147,12 +155,23 @@ function die(game, reason) {
 function movePlatforms(game) {
   const player = game.player;
   for (const platform of game.platforms) {
-    if (!platform.motion) continue;
-    const { distance, speed } = platform.motion;
-    const x = platform.baseX + Math.sin(game.elapsed * speed / distance) * distance;
-    const dx = x - platform.x;
+    if (!platform.motion || platform.broken) continue;
+    const { distance, speed, axis } = platform.motion;
+    const wave = Math.sin(game.elapsed * speed / distance);
     const standing = player.grounded && Math.abs(player.y + player.h - platform.y) < 1
       && player.x + player.w > platform.x && player.x < platform.x + platform.w;
+    if (axis === 'y') {
+      const y = platform.baseY + wave * distance;
+      const dy = y - platform.y;
+      platform.y = y;
+      if (standing) player.y += dy;
+      for (const item of [...game.food, ...game.supplies]) {
+        if (item.platform === platform) item.y += dy;
+      }
+      continue;
+    }
+    const x = platform.baseX + wave * distance;
+    const dx = x - platform.x;
     platform.x = x;
     if (standing) player.x = clamp(player.x + dx, 0, game.level.width - player.w);
     for (const item of [...game.food, ...game.supplies]) {
@@ -221,7 +240,7 @@ function movePlayer(game, input, dt) {
     p.x = clamp(p.x, arena.cfg.arenaLeft, arena.cfg.arenaRight - p.w);
   }
   for (const solid of platforms) {
-    if (solid.oneway) continue;
+    if (solid.oneway || solid.broken || solid.kind === 'slope') continue;
     if (!overlaps(p, solid)) continue;
     if (oldX + p.w <= solid.x) p.x = solid.x - p.w;
     else if (oldX >= solid.x + solid.w) p.x = solid.x + solid.w;
@@ -233,6 +252,7 @@ function movePlayer(game, input, dt) {
   p.y += p.vy * dt;
   p.grounded = false;
   for (const solid of platforms) {
+    if (solid.broken || solid.kind === 'slope') continue;
     if (!overlaps(p, solid)) continue;
     // 单向平台只在下落途中接住玩家，跳上去时从下方穿过。
     const landing = p.vy >= 0 && oldY + p.h <= solid.y + 0.6;
@@ -241,9 +261,31 @@ function movePlayer(game, input, dt) {
       p.y = solid.y - p.h;
       p.vy = 0;
       p.grounded = true;
+      // 键帽弹簧：落地直接把人弹得更高。
+      if (solid.bounce) {
+        p.vy = -PLAYER.jumpSpeed * solid.bounce;
+        p.grounded = false;
+        p.coyote = PLAYER.coyoteTime;
+        sparks(game, p.x + p.w / 2, solid.y, '#ffd97a', 6);
+      }
     } else if (p.vy < 0 && oldY >= solid.y + solid.h) {
       p.y = solid.y + solid.h;
       p.vy = 0;
+    }
+  }
+
+  // 斜坡：按脚下的高度把人贴在坡面上，走上坡就是一路抬升。
+  for (const solid of platforms) {
+    if (solid.kind !== 'slope' || solid.broken) continue;
+    const center = p.x + p.w / 2;
+    if (center < solid.x || center > solid.x + solid.w) continue;
+    const t = (center - solid.x) / solid.w;
+    const surfaceY = solid.y - (solid.rise ?? 0) * t;
+    const feetY = p.y + p.h;
+    if (p.vy >= 0 && feetY >= surfaceY - 8 && feetY <= surfaceY + 24) {
+      p.y = surfaceY - p.h;
+      p.vy = 0;
+      p.grounded = true;
     }
   }
 }
@@ -253,6 +295,50 @@ function sparks(game, x, y, color, count) {
     const vx = Math.cos(i * 2.4) * (20 + i * 9);
     game.sparks.push({ x, y, vx, vy: -35 - (i % 4) * 15, color, life: 0.24 + (i % 3) * 0.05 });
   }
+}
+
+// 会塌的书堆：站久了就散架，过一会儿复原。
+function updatePlatforms(game, dt) {
+  const p = game.player;
+  const feet = p.y + p.h;
+  for (const solid of game.platforms) {
+    if (!solid.crumble) continue;
+    if (solid.broken) {
+      solid.respawnTimer -= dt;
+      if (solid.respawnTimer <= 0) {
+        solid.broken = false;
+        solid.crumbleTimer = 0;
+      }
+      continue;
+    }
+    const standing = p.grounded && Math.abs(feet - solid.y) < 1.5
+      && p.x + p.w > solid.x && p.x < solid.x + solid.w;
+    solid.crumbleTimer = standing
+      ? solid.crumbleTimer + dt
+      : Math.max(0, solid.crumbleTimer - dt * 2);
+    if (solid.crumbleTimer >= solid.crumble.delay) {
+      solid.broken = true;
+      solid.respawnTimer = solid.crumble.respawn;
+      sparks(game, solid.x + solid.w / 2, solid.y, '#d9b382', 9);
+    }
+  }
+}
+
+// 第 2 关的断电段：走进区域后画面变暗几秒，出来自动恢复。
+function updateBlackout(game, dt) {
+  const zone = game.level.blackout;
+  const state = game.blackout;
+  if (!state) return;
+  const p = game.player;
+  const center = p.x + p.w / 2;
+  if (zone && !state.fired && center >= zone.x && center <= zone.x + zone.w) {
+    state.fired = true;
+    state.active = true;
+    state.timer = zone.duration;
+  }
+  if (!state.active) return;
+  state.timer -= dt;
+  if (state.timer <= 0) state.active = false;
 }
 
 const SCORE_PER_LIFE = 150;
@@ -344,6 +430,11 @@ function stepShots(game, fire, dt) {
     if (dropping) { dropping.destroyed = true; game.stats.bossProjectiles += 1; addScore(game, 1, 'projectiles'); sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < (game.level.height ?? VIEW.height) + 12;
+    // 盾牌狗正面挡子弹：从它面朝的方向打过来会被弹开，绕后或用手榴弹才有效。
+    if (enemy.type === 'shielder' && Math.sign(bullet.vx) === -enemy.direction) {
+      sparks(game, bullet.x + bullet.w / 2, bullet.y + bullet.h / 2, '#9fd0e0', 5);
+      return false;
+    }
     damageTarget(game, enemy, bullet.damage, 0.12);
     bullet.hit.push(enemy);
     sparks(game, bullet.x + bullet.w / 2, bullet.y + bullet.h / 2, WEAPONS[bullet.kind]?.color ?? '#ffb52e', enemy.health === 0 ? 9 : 3);
@@ -445,6 +536,19 @@ function stepEnemies(game, dt) {
       const diving = !enemy.upperOnly && dx < 120 && Math.abs(p.y - enemy.y) < 140;
       const target = diving ? p.y - 6 : enemy.baseY + Math.sin(enemy.phase) * type.amplitude;
       enemy.y = approach(enemy.y, target, 150 * dt);
+    } else if (enemy.type === 'charger') {
+      stepCharger(enemy, type, p, dt);
+      continue;
+    } else if (enemy.type === 'shielder') {
+      // 盾牌狗：每 1.2 秒才转一次身，玩家可以趁它没转过来绕后开枪。
+      enemy.turnTimer = (enemy.turnTimer ?? 1.2) - dt;
+      if (enemy.turnTimer <= 0) {
+        enemy.turnTimer = 1.2;
+        enemy.direction = p.x + p.w / 2 < enemy.x + enemy.w / 2 ? -1 : 1;
+      }
+      const dx = Math.abs(p.x - enemy.x);
+      if (dx > 26 && Math.abs(p.y - enemy.y) < 120) enemy.x += enemy.direction * type.speed * dt;
+      continue;
     }
 
     if (enemy.upperOnly && p.y + p.h > 220) {
@@ -463,8 +567,7 @@ function stepEnemies(game, dt) {
     }
   }
 
-  const shots = game.enemyShots;
-  const respawns = game.respawns;
+  const shots = game.enemyShots;  const respawns = game.respawns;
   const remainingShots = shots.filter(shot => {
     if (game.respawns !== respawns || game.status !== "playing") return false;
     if (shot.health <= 0) return false;
@@ -480,6 +583,47 @@ function stepEnemies(game, dt) {
     return shot.x > -20 && shot.x < game.level.width + 20 && shot.y > -20 && shot.y < (game.level.height ?? VIEW.height) + 20;
   });
   if (game.respawns === respawns && game.status === "playing") game.enemyShots = remainingShots;
+}
+
+// 冲刺狗：走动 → 蓄力（红圈预告）→ 直线冲刺 → 撞墙/冲完眩晕 → 继续走。
+function stepCharger(enemy, type, p, dt) {
+  enemy.state = enemy.state ?? 'walk';
+  enemy.timer = Math.max(0, (enemy.timer ?? 0) - dt);
+  enemy.cooldown = Math.max(0, (enemy.cooldown ?? 0) - dt);
+  const dx = Math.abs(p.x - enemy.x);
+  const dy = Math.abs(p.y - enemy.y);
+  if (enemy.state === 'walk') {
+    enemy.x += enemy.direction * type.speed * dt;
+    if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
+      enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX);
+      enemy.direction *= -1;
+    }
+    if (enemy.cooldown <= 0 && dx < type.range && dy < 90) {
+      enemy.state = 'wind';
+      enemy.timer = type.telegraph;
+      enemy.direction = p.x + p.w / 2 < enemy.x + enemy.w / 2 ? -1 : 1;
+      enemy.tell = type.telegraph;
+    }
+  } else if (enemy.state === 'wind') {
+    if (enemy.timer <= 0) {
+      enemy.tell = 0;
+      enemy.state = 'charge';
+      enemy.timer = type.chargeTime;
+    }
+  } else if (enemy.state === 'charge') {
+    const left = enemy.minX - 46;
+    const right = enemy.maxX + 46;
+    const nextX = enemy.x + enemy.direction * type.chargeSpeed * dt;
+    const hitWall = nextX <= left || nextX >= right;
+    enemy.x = clamp(nextX, left, right);
+    if (hitWall || enemy.timer <= 0) {
+      enemy.state = 'stun';
+      enemy.timer = type.stun;
+      enemy.cooldown = type.interval;
+    }
+  } else if (enemy.state === 'stun') {
+    if (enemy.timer <= 0) enemy.state = 'walk';
+  }
 }
 
 function stepGrenades(game, input, dt) {
@@ -1023,6 +1167,9 @@ export function stepGame(game, input, dt) {
   }
 
   game.checkpoint = Math.max(game.checkpoint, nearestCheckpoint(game, p));
+  // 会塌的书堆 / 键帽弹簧 / 断电桥段
+  updatePlatforms(game, dt);
+  updateBlackout(game, dt);
   startHordes(game);
   const beforeEnemies = game.respawns;
   stepShots(game, input.fire, dt);

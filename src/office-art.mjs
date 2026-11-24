@@ -1,4 +1,4 @@
-﻿import { GROUND, VIEW } from './levels.mjs';
+import { GROUND, VIEW } from './levels.mjs';
 
 const { width: W, height: H } = VIEW;
 const BASES = new Set(['desk', 'floor', 'monitorTop', 'printerTop']);
@@ -174,8 +174,34 @@ export function createOfficeArt(ctx, { round, oval, line }) {
 
   function platform(p, camera) {
     const { x, y, w, h, kind } = p;
-    const [light, mid, dark] = MATERIALS[kind];
     const end = x + w;
+    if (kind === 'slope') {
+      // 斜上坡：上表面就是从 (x, y) 到 (x + w, y - rise) 的坡面。
+      const rise = p.rise ?? 0;
+      ctx.fillStyle = '#a9825b';
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      ctx.lineTo(end, y - rise + h);
+      ctx.lineTo(end, y - rise);
+      ctx.lineTo(x, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#d9b184';
+      ctx.beginPath();
+      ctx.moveTo(x, y + 2);
+      ctx.lineTo(end, y - rise + 2);
+      ctx.lineTo(end, y - rise + 6);
+      ctx.lineTo(x, y + 6);
+      ctx.closePath();
+      ctx.fill();
+      line(x, y + 1, end, y - rise + 1, '#f3ddb8', 1.6);
+      for (let i = 1; i < 6; i++) {
+        const t = i / 6;
+        line(x + w * t, y - rise * t + 7, x + w * t, y - rise * t + h - 1, '#7d5f42', 1);
+      }
+      return;
+    }
+    const [light, mid, dark] = MATERIALS[kind];
     const stripe = (spacing, paint) => {
       const start = Math.max(0, Math.floor((camera - x - spacing) / spacing));
       for (let i = start; x + i * spacing < Math.min(end, camera + W + spacing); i++) paint(x + i * spacing, i);

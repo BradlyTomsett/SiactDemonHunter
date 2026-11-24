@@ -42,6 +42,17 @@ export const ENEMIES = {
     amplitude: 26, frequency: 1.7,
     range: 200, interval: 3.2, telegraph: 0.7, shotSpeed: 165,
   },
+  // 冲刺狗：原地蓄力后沿直线冲过来，撞墙后短暂眩晕，是最容易躲也最容易翻车的一种。
+  charger: {
+    width: 30, height: 24, speed: 46, health: 4, damage: 1,
+    range: 300, interval: 2.4, telegraph: 0.55, shotSpeed: 160,
+    chargeSpeed: 205, chargeTime: 0.75, stun: 0.9,
+  },
+  // 盾牌狗：正面挡子弹，必须绕到背后或者用手榴弹。
+  shielder: {
+    width: 30, height: 26, speed: 34, health: 6, damage: 1,
+    range: 0, interval: 0, telegraph: 0,
+  },
 };
 
 export const BOSS = {
@@ -92,12 +103,20 @@ const drawer = (c, x, y, w, h = 40) => c.platforms.push({ x, y, w, h, kind: 'dra
 const crate = (c, x, y, w, h = 30) => c.platforms.push({ x, y, w, h, kind: 'crate' });
 const plank = (c, x, y, w) => c.platforms.push({ x, y, w, h: 8, kind: 'plank', oneway: true });
 const shelf = (c, x, y, w) => c.platforms.push({ x, y, w, h: 10, kind: 'shelf', oneway: true });
+// 斜坡：从左端 (x, y) 走到右端 (x + w, y - rise)，rise 为正表示往右上坡。
+const slope = (c, x, y, w, rise) => c.platforms.push({ x, y, w, h: 12, kind: 'slope', rise });
+// 键盘键帽：踩上去会被弹得更高，用来够到高处的分支。
+const springboard = (c, x, y, w, power = 1.45) => c.platforms.push({ x, y, w, h: 18, kind: 'keyboard', bounce: power });
+// 会塌的书堆：站上去一会儿就散架，过几秒复原。
+const crumbly = (c, x, y, w) => c.platforms.push({ x, y, w, h: 24, kind: 'books', crumble: { delay: 0.55, respawn: 2.8 } });
 
 const patrol = (c, x, minX, maxX) => c.enemies.push({ type: 'patrol', x, y: GROUND, minX, maxX });
 const gunner = (c, x) => c.enemies.push({ type: 'gunner', x, y: GROUND });
 const flyer = (c, x, y, minX, maxX) => c.enemies.push({ type: 'flyer', x, y, minX, maxX });
 // 高处的飞怪只在玩家上到高处后主动攻击，地面路线仍然轻松。
 const upperFlyer = (c, x, y, minX, maxX) => c.enemies.push({ type: 'flyer', x, y, minX, maxX, upperOnly: true });
+const charger = (c, x, minX, maxX) => c.enemies.push({ type: 'charger', x, y: GROUND, minX, maxX, direction: -1 });
+const shielder = (c, x) => c.enemies.push({ type: 'shielder', x, y: GROUND, direction: -1 });
 
 const health = (c, x, y, amount = 1) => c.supplies.push({ x, y, amount });
 const weapon = (c, x, y, type) => c.supplies.push({ x, y, type });
@@ -121,6 +140,9 @@ plank(ch1, 980, 196, 90);
 desk(ch1, 1126, 1174);
 plank(ch1, 1300, 218, 170);
 shelf(ch1, 1470, 158, 160);
+// 会塌的书堆和键帽弹簧：一个教「别停」，一个把人弹到高处
+crumbly(ch1, 1180, 262, 70);
+springboard(ch1, 1550, 268, 64);
 decorate(ch1, 558, 267, 'monitor');
 decorate(ch1, 1175, 286, 'cup');
 patrol(ch1, 760, 700, 850);
@@ -147,6 +169,8 @@ books(ch2, 320, 250, 56, 36);
 books(ch2, 376, 214, 56, 36);
 books(ch2, 432, 178, 48, 36);
 plank(ch2, 560, 150, 90);
+// 斜上坡：从桌面直接走到书堆顶上，不用跳
+slope(ch2, 250, 286, 70, 36);
 desk(ch2, 1010, 430);
 books(ch2, 1150, 246, 70, 40);
 shelf(ch2, 1240, 210, 100);
@@ -200,6 +224,8 @@ patrol(ch3, 2450, 2400, 2600);
 flyer(ch3, 500, 200, 430, 720);
 flyer(ch3, 800, 190, 770, 900);
 flyer(ch3, 2050, 180, 1980, 2240);
+charger(ch3, 1250, 900, 1300);
+shielder(ch3, 2200);
 hazard(ch3, 470, 100, GROUND - 14, 'cable');
 hazard(ch3, 1000, 110, GROUND - 14, 'cable');
 hazard(ch3, 1160, 50, GROUND - 14, 'cable');
@@ -240,6 +266,8 @@ patrol(ch4, 2000, 1950, 2140);
 gunner(ch4, 2400);
 patrol(ch4, 2600, 2500, 2740);
 flyer(ch4, 2100, 170, 2000, 2160);
+shielder(ch4, 1100);
+charger(ch4, 2100, 1800, 2170);
 hazard(ch4, 140, 90, GROUND - 14, 'spill');
 hazard(ch4, 560, 95, GROUND - 14, 'spill');
 hazard(ch4, 760, 95, GROUND - 14, 'spill');
@@ -309,6 +337,13 @@ for (const y of [1400, 1100, 560]) {
   const platform = tower.platforms.find(item => item.arrow && item.y === y);
   platform.motion = { distance: 24, speed: 32 };
 }
+// 升降抽屉：在 920 和 680 两层大平台之间来回，等它到位置再跳上去。
+tower.platforms.push({ x: 820, y: 800, w: 140, h: 40, kind: 'drawer', motion: { axis: 'y', distance: 110, speed: 55 } });
+// 平台上的斜上坡 + 一小块高台，走上去就能拿补给
+slope(tower, 620, 680, 160, 60);
+tower.platforms.push({ x: 780, y: 620, w: 110, h: 14, kind: 'books' });
+health(tower, 820, 620 - 14);
+crumbly(tower, 440, 898, 70);
 // 顶层：首领战场（从左侧的抽屉跳上来）
 landing(350, 320, 630);
 
@@ -396,6 +431,7 @@ for (const [x,w] of [[0,520],[600,540],[1220,680]]) monitor.platforms.push({ x, 
 crate(monitor, 350, 256, 50); shelf(monitor, 800, 225, 100); crate(monitor, 1470, 256, 48);
 flyer(monitor, 720, 210, 640, 950); patrol(monitor, 1510, 1420, 1660);
 gunner(monitor, 1000); flyer(monitor, 1100, 190, 1050, 1200);
+shielder(monitor, 900);
 hazard(monitor, 740, 60, GROUND - 14, 'cable');
 hazard(monitor, 1000, 100, GROUND - 14, 'spill');
 health(monitor, 640, 270); weapon(monitor, 1250, 270, 'pierce');
@@ -411,6 +447,8 @@ gunner(printer, 850); patrol(printer, 1650, 1530, 1770); flyer(printer, 1100, 20
 patrol(printer, 1400, 1330, 1520);
 upperFlyer(printer, 490, 130, 460, 535);
 upperFlyer(printer, 900, 130, 850, 950);
+charger(printer, 1000, 700, 1200);
+shielder(printer, 1600);
 hazard(printer, 1450, 55, GROUND - 14, 'crumb');
 hazard(printer, 700, 90, GROUND - 14, 'cable');
 hazard(printer, 1600, 80, GROUND - 14, 'cable');
@@ -597,6 +635,9 @@ export const LEVELS = [
   finalizeTower(tower),
   mergeChapters('ch4', '第 4 关 · 屏幕到桌缝', '显示器顶部、打印机和桌缝终局', [monitor, printer, ch6]),
 ];
+
+// 第 2 关的断电段：走进 1600~2700 这片区域会黑掉 7 秒，只剩角色周围一圈光。
+LEVELS[1].blackout = { x: 1600, w: 1100, duration: 7 };
 
 // 每波使用一段连续地面；第三关的两波分别安排在不同高度的宽平台。
 const hordeSpans = [
