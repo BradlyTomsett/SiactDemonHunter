@@ -11,6 +11,7 @@ export function createGame(level, options = {}) {
     lives: options.lives ?? PLAYER.lives, respawns: 0, respawnReason: "", checkpoint: -1,
     enemies: [], supplies: [], bullets: [], enemyShots: [], sparks: [], grenades: [], waves: [],
     bosses: [], boss: null, clearedBosses: 0, helperDrops: 0,
+    clearedHordes: new Set(), hordeStarts: 0,
     score: options.score ?? 0, collectedFood: new Set(), food: [],
     characterId: CHARACTERS[options.characterId] ? options.characterId : 'minister',
     stats: {
@@ -54,6 +55,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   };
   game.platforms = level.platforms.map(platform => ({ ...platform, baseX: platform.x }));
   game.enemies = level.enemies.map(makeEnemy);
+  game.activeHordes = new Set();
   game.food = (level.food ?? []).map((item, index) => ({
     ...item, index, taken: game.collectedFood.has(index),
   }));
@@ -275,6 +277,10 @@ function damageTarget(game, target, amount, flash) {
   } else if (game.enemies.includes(target)) {
     game.stats.enemyKills += 1;
     addScore(game, 5, 'enemies');
+    if (target.horde !== undefined && !game.enemies.some(enemy => enemy.horde === target.horde && enemy.health > 0)) {
+      game.activeHordes.delete(target.horde);
+      game.clearedHordes.add(target.horde);
+    }
   } else if (game.waves.includes(target)) {
     game.stats.bossProjectiles += 1;
     addScore(game, 1, 'projectiles');
@@ -359,6 +365,55 @@ function fireEnemyShot(game, enemy) {
   });
 }
 
+const hordeFormation = ['patrol', 'flyer', 'gunner', 'patrol', 'flyer', 'patrol', 'gunner', 'flyer', 'patrol', 'gunner'];
+
+function startHordes(game) {
+  if (game.boss && game.boss.state !== 'waiting') return;
+  const player = game.player;
+  const center = player.x + player.w / 2;
+  const feet = player.y + player.h;
+  for (const [id, {left, right, ground}] of (game.level.hordes ?? []).entries()) {
+    if (game.activeHordes.has(id) || game.clearedHordes.has(id)) continue;
+    if (center < left || center > right || feet > ground + 2 || feet < ground - 105) continue;
+    const direction = center < (left + right) / 2 ? -1 : 1;
+    let groundSlot = 0, airSlot = 0;
+    for (const type of hordeFormation) {
+      const flying = type === 'flyer';
+      const slot = flying ? airSlot++ : groundSlot++;
+      const width = ENEMIES[type].width;
+      const offset = 8 + slot * (flying ? 36 : 24);
+      const x = direction < 0 ? right - width - offset : left + offset;
+      const enemy = makeEnemy({
+        type, x, y: ground - (flying ? 54 + slot * 12 : 0), horde: id,
+        minX: left, maxX: right - width, phase: slot * 1.8,
+      });
+      enemy.direction = direction;
+      enemy.cooldown += slot * .22;
+      game.enemies.push(enemy);
+    }
+    game.activeHordes.add(id);
+    game.hordeStarts++;
+  }
+}
+
+function stepHordeEnemy(enemy, player, dt) {
+  const flying = enemy.type === 'flyer';
+  const aim = player.x + player.w / 2 - enemy.w / 2;
+  enemy.direction = aim < enemy.x ? -1 : 1;
+  const stopShort = enemy.type === 'gunner' ? 95 : 0;
+  const target = Math.abs(aim - enemy.x) > stopShort
+    ? clamp(aim - enemy.direction * stopShort, enemy.minX, enemy.maxX) : enemy.x;
+  const speed = enemy.type === 'gunner' ? 70 : flying ? 112 : 140;
+  const nextX = approach(enemy.x, target, speed * dt);
+  enemy.running = nextX !== enemy.x;
+  enemy.x = nextX;
+  if (flying) {
+    enemy.phase += dt * 7;
+    const height = clamp(player.y - 12, enemy.baseY - 28, enemy.baseY + 36);
+    enemy.y = approach(enemy.y, height + Math.sin(enemy.phase) * 9, 115 * dt);
+  }
+}
+
 function stepEnemies(game, dt) {
   const p = game.player;
   for (const enemy of game.enemies) {
@@ -366,7 +421,10 @@ function stepEnemies(game, dt) {
     const type = ENEMIES[enemy.type];
     enemy.flash = Math.max(0, enemy.flash - dt);
 
-    if (enemy.type === 'patrol') {
+    if (enemy.horde !== undefined) {
+      stepHordeEnemy(enemy, p, dt);
+      if (enemy.type === 'patrol') continue;
+    } else if (enemy.type === 'patrol') {
       enemy.x += enemy.direction * type.speed * dt;
       if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
         enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX);
@@ -950,6 +1008,7 @@ export function stepGame(game, input, dt) {
   }
 
   game.checkpoint = Math.max(game.checkpoint, nearestCheckpoint(game, p));
+  startHordes(game);
   const beforeEnemies = game.respawns;
   stepShots(game, input.fire, dt);
   stepEnemies(game, dt);
@@ -1034,6 +1093,7 @@ export function restoreGame(game, snapshot) {
   if (Number.isFinite(snapshot.lives)) game.lives = snapshot.lives;
   if (snapshot.stats) game.stats = snapshot.stats;
   if (Array.isArray(snapshot.collectedFood)) game.collectedFood = new Set(snapshot.collectedFood);
+  if (Array.isArray(snapshot.clearedHordes)) game.clearedHordes = new Set(snapshot.clearedHordes);
   if (Number.isFinite(snapshot.clearedBosses)) game.clearedBosses = snapshot.clearedBosses;
   if (Number.isFinite(snapshot.elapsed)) game.elapsed = snapshot.elapsed;
   const carry = snapshot.carry ? {

@@ -19,6 +19,7 @@ export function makeSnapshot(game, extra = {}) {
     completedTime: extra.completedTime ?? 0,
     levelStartScore: extra.levelStartScore ?? 0,
     collectedFood: [...game.collectedFood],
+    clearedHordes: [...game.clearedHordes],
     clearedBosses: game.clearedBosses,
     checkpoint: game.checkpoint,
     nextLevel: extra.nextLevel ?? null,

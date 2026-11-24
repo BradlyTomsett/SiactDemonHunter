@@ -597,3 +597,14 @@ export const LEVELS = [
   finalizeTower(tower),
   mergeChapters('ch4', '第 4 关 · 屏幕到桌缝', '显示器顶部、打印机和桌缝终局', [monitor, printer, ch6]),
 ];
+
+// 每波使用一段连续地面；第三关的两波分别安排在不同高度的宽平台。
+const hordeSpans = [
+  [[1680, 2140], [3430, 3840]],
+  [[2450, 2910], [3790, 4210]],
+  [[390, 750, 920], [390, 770, 680]],
+  [[1550, 2020], [4140, 4610]],
+];
+for (const [index, level] of LEVELS.entries()) {
+  level.hordes = hordeSpans[index].map(([left, right, ground = GROUND]) => ({ left, right, ground }));
+}

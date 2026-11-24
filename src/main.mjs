@@ -528,6 +528,7 @@ function frame(now) {
     const priorDefeats = game.clearedBosses;
     const priorBoss = game.boss;
     const priorHelperDrops = game.helperDrops;
+    const priorHordes = game.hordeStarts;
     while (accumulator >= step && game.status === "playing") {
       stepGame(game, input.read(), step);
       accumulator -= step;
@@ -538,6 +539,7 @@ function frame(now) {
     }
     if (game.helperDrops > priorHelperDrops) speakLine('我是好人！');
     updateHud();
+    if (game.hordeStarts > priorHordes) showNotice('小怪潮来了！');
     if (game.status !== "playing") finish();
     saveTimer -= seconds;
     if (saveTimer <= 0) {
