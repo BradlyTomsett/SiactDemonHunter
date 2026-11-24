@@ -257,29 +257,36 @@ export function createRenderer(canvas) {
   function logicWave(wave, t) {
     if (wave.health <= 0) return;
     const cx = wave.x + wave.w / 2;
-    const cy = wave.y + wave.h / 2;
     ctx.save();
-    ctx.translate(cx, cy);
-    round(-wave.w / 2, -wave.h / 2, wave.w, wave.h, 10, '#123049');
-    round(-wave.w / 2 + 2, -wave.h / 2 + 2, wave.w - 4, wave.h - 4, 9, '#2f7fb5');
-    // 拖尾的声波折线画在运动方向的后面
-    const trail = wave.direction > 0 ? -1 : 1;
-    ctx.strokeStyle = wave.flash > 0 ? '#fff6cf' : '#bfe9ff';
+    ctx.translate(cx, wave.y);
+    const w = wave.w, h = wave.h;
+    const wind = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+    wind.addColorStop(0, '#387998aa');
+    wind.addColorStop(.5, wave.flash > 0 ? '#fff6cfee' : '#b7f3f5ee');
+    wind.addColorStop(1, '#367995bb');
+    ctx.beginPath();
+    ctx.moveTo(-w * .48, 4);
+    ctx.bezierCurveTo(-w * .48, h * .28, -w * .19, h * .55, -w * .10, h - 5);
+    ctx.quadraticCurveTo(0, h + 4, w * .1, h - 5);
+    ctx.bezierCurveTo(w * .19, h * .55, w * .48, h * .28, w * .48, 4);
+    ctx.closePath();
+    ctx.fillStyle = wind;
+    ctx.fill();
+    ctx.strokeStyle = wave.flash > 0 ? '#fff8d2' : '#e5ffff';
     ctx.lineWidth = 2;
-    for (let i = 0; i < 2; i++) {
-      const bx = trail * (wave.w / 2 - 7 - i * 7);
+    for (let i = 0; i < 4; i++) {
+      const y = 7 + i * h * .19;
+      const radius = w * (.42 - i * .075);
+      const sway = Math.sin(t * 8 + i) * 3;
       ctx.beginPath();
-      ctx.moveTo(bx, -8);
-      ctx.lineTo(bx - trail * 5, 0);
-      ctx.lineTo(bx, 8);
+      ctx.ellipse(sway, y, radius, 4, -.12, .1, Math.PI * 1.7);
       ctx.stroke();
     }
-    ctx.fillStyle = wave.flash > 0 ? '#fff6cf' : '#eaf7ff';
-    ctx.font = 'bold 15px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = '#143a53';
+    ctx.font = 'bold 13px "Microsoft YaHei", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('逻辑', -trail * 3, 1);
-    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('逻辑', 0, h * .38);
     ctx.restore();
   }
 
@@ -505,18 +512,24 @@ export function createRenderer(canvas) {
     ctx.translate(-Math.round(game.camera), -Math.round(cameraY));
     office.gaps(game.level, game.camera);
     for (const d of game.level.decoration) if (office.visible(d, game.camera, cameraY)) office.decoration(d, game.camera);
-    for (const platform of game.level.platforms) {
+    for (const platform of game.platforms) {
       if (!office.visible(platform, game.camera, cameraY)) continue;
       ctx.save();
       // 攀爬关的平台可从下方穿过，用半透明的家具提示这一点。
       if (game.level.height > H && platform.oneway) ctx.globalAlpha = .76;
       office.platform(platform, game.camera);
+      if (platform.motion) {
+        ctx.fillStyle = '#fff4c6';
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText('↔', platform.x + platform.w / 2, platform.y + Math.min(platform.h - 2, 15));
+      }
       ctx.restore();
     }
     // A soft ground shadow shows where the player is lined up to land.
     const p = game.player;
     const center = p.x + p.w / 2;
-    const support = game.level.platforms
+    const support = game.platforms
       .filter(surface => center >= surface.x && center <= surface.x + surface.w && p.y + p.h <= surface.y + 1)
       .reduce((closest, surface) => !closest || surface.y < closest.y ? surface : closest, null);
     if (support) {
@@ -546,7 +559,7 @@ export function createRenderer(canvas) {
         }
       }
     }
-    const firstPlatform = game.level.platforms.find(platform => platform.oneway);
+    const firstPlatform = game.platforms.find(platform => platform.oneway);
     if ((game.level.height ?? 360) <= 360 && firstPlatform && game.player.x < firstPlatform.x + firstPlatform.w && office.visible(firstPlatform, game.camera, cameraY)) {
       const x = firstPlatform.x + firstPlatform.w / 2;
       const y = firstPlatform.y + 27 + Math.sin(game.elapsed * 4) * 3;
@@ -558,7 +571,7 @@ export function createRenderer(canvas) {
     let guide = null;
     let guideScore = Infinity;
     const feet = game.player.y + game.player.h;
-    for (const platform of game.level.platforms) {
+    for (const platform of game.platforms) {
       if (!platform.arrow) continue;
       const dy = feet - platform.y;
       if (dy <= 0 || dy > 100) continue;

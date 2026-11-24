@@ -52,6 +52,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     ammo: keep?.ammo ?? Infinity,
     grenades: character.infiniteGrenades ? Infinity : (keep?.grenades ?? 2), boost: keep?.boost ?? 0,
   };
+  game.platforms = level.platforms.map(platform => ({ ...platform, baseX: platform.x }));
   game.enemies = level.enemies.map(makeEnemy);
   game.food = (level.food ?? []).map((item, index) => ({
     ...item, index, taken: game.collectedFood.has(index),
@@ -60,6 +61,13 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   game.supplies = level.supplies.map(supply => ({
     ...supply, x: supply.x - 4, y: supply.y - 8, w: 22, h: 22, taken: false,
   }));
+  // 把平台上的拾取物固定到平台，移动时保持相对位置。
+  for (const item of [...game.food, ...game.supplies]) {
+    const platform = game.platforms.find(surface => surface.motion
+      && Math.abs(item.y + item.h - surface.y) <= 2
+      && item.x >= surface.x && item.x + item.w <= surface.x + surface.w);
+    if (platform) item.platform = platform;
+  }
   game.bullets = [];
   game.enemyShots = [];
   game.grenades = [];
@@ -134,9 +142,26 @@ function die(game, reason) {
   return false;
 }
 
+function movePlatforms(game) {
+  const player = game.player;
+  for (const platform of game.platforms) {
+    if (!platform.motion) continue;
+    const { distance, speed } = platform.motion;
+    const x = platform.baseX + Math.sin(game.elapsed * speed / distance) * distance;
+    const dx = x - platform.x;
+    const standing = player.grounded && Math.abs(player.y + player.h - platform.y) < 1
+      && player.x + player.w > platform.x && player.x < platform.x + platform.w;
+    platform.x = x;
+    if (standing) player.x = clamp(player.x + dx, 0, game.level.width - player.w);
+    for (const item of [...game.food, ...game.supplies]) {
+      if (item.platform === platform) item.x += dx;
+    }
+  }
+}
+
 function movePlayer(game, input, dt) {
   const p = game.player;
-  const platforms = game.level.platforms;
+  const platforms = game.platforms;
   const slipping = p.grounded && game.hazards.some(h => h.kind === 'spill' && overlaps(p, h));
   const acceleration = PLAYER.acceleration * (slipping ? 0.22 : 1);
 
@@ -278,7 +303,7 @@ function stepShots(game, fire, dt) {
     bullet.x += dx;
     bullet.y += dy;
     bullet.life -= dt;
-    if (game.level.platforms.some(solid => !solid.oneway && overlaps(sweep, solid))) return false;
+    if (game.platforms.some(solid => !solid.oneway && overlaps(sweep, solid))) return false;
     const crumb = game.hazards.find(h => h.kind === 'crumb' && !h.destroyed && overlaps(h, sweep));
     if (crumb) { crumb.destroyed = true; sparks(game, crumb.x + crumb.w / 2, crumb.y, '#c79555', 7); return false; }
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
@@ -361,7 +386,7 @@ function stepEnemies(game, dt) {
     shot.y += shot.vy * dt;
     shot.life -= dt;
     if (shot.life <= 0) return false;
-    if (game.level.platforms.some(solid => !solid.oneway && overlaps(shot, solid))) return false;
+    if (game.platforms.some(solid => !solid.oneway && overlaps(shot, solid))) return false;
     if (overlaps(shot, game.player)) {
       damagePlayer(game, shot, 1);
       return false;
@@ -383,7 +408,7 @@ function stepGrenades(game, input, dt) {
     g.x += g.vx * dt;
     g.y += g.vy * dt;
     g.spin += g.vx * dt * 0.045;
-    for (const solid of game.level.platforms) {
+    for (const solid of game.platforms) {
       if (solid.oneway) continue;
       if (g.vy > 0 && oldY + g.h <= solid.y && g.y + g.h >= solid.y && g.x + g.w > solid.x && g.x < solid.x + solid.w) {
         g.y = solid.y - g.h; g.vy = -Math.abs(g.vy) * 0.28; g.vx *= 0.7;
@@ -536,15 +561,15 @@ function stepBoss(game, dt) {
 
 // ── 骡子：技能只有「逻辑」声波 + 半血时一次「狗来」召唤 ─────────────────────
 function spawnLogicWave(game, boss, cfg) {
-  const w = 56;
-  const h = 34;
+  const w = 46;
+  const h = boss.h;
   const x = boss.direction < 0 ? boss.x - w - 4 : boss.x + boss.w + 4;
   game.waves.push({
     x, y: cfg.ground - h, w, h,
     direction: boss.direction,
-    health: 2, maxHealth: 2, flash: 0,
+    health: 5, maxHealth: 5, flash: 0,
     kind: 'logic',
-    speed: cfg.logicSpeed ?? 190,
+    speed: cfg.logicSpeed ?? DROPPINGS.rollSpeed,
   });
 }
 
@@ -675,7 +700,7 @@ function separateBoss(game, player, boss, arena) {
   const positions = Math.abs(player.x - left) <= Math.abs(player.x - right) ? [left, right] : [right, left];
   for (const x of positions) {
     if (x < arena.arenaLeft || x + player.w > arena.arenaRight) continue;
-    if (game.level.platforms.some(solid => !solid.oneway && overlaps({ ...player, x }, solid))) continue;
+    if (game.platforms.some(solid => !solid.oneway && overlaps({ ...player, x }, solid))) continue;
     player.vx = Math.sign(x - player.x) * PLAYER.knockbackSpeed;
     player.x = x;
     return;
@@ -814,6 +839,7 @@ export function stepGame(game, input, dt) {
   p.knockback = Math.max(0, p.knockback - dt);
   p.flash = Math.max(0, p.flash - dt);
   p.boost = Math.max(0, p.boost - dt);
+  movePlatforms(game);
   movePlayer(game, input, dt);
   const levelHeight = game.level.height ?? VIEW.height;
   if (p.y > levelHeight + 18) {
@@ -853,7 +879,7 @@ export function stepGame(game, input, dt) {
     if (supply.taken || !overlaps(p, supply)) continue;
     if (supply.type === 'grenade') {
       if (p.grenades >= GRENADE.max) continue;
-      p.grenades = Math.min(GRENADE.max, p.grenades + supply.amount);
+      p.grenades = Math.min(GRENADE.max, p.grenades + supply.amount * CHARACTERS[game.characterId].pickupMultiplier);
     } else if (supply.type === 'ammo') {
       // 好人送的弹药：普通枪时换成一把满弹的霰弹枪，否则只补满当前武器。
       const kind = p.weapon === 'basic' ? 'spread' : p.weapon;
@@ -863,11 +889,11 @@ export function stepGame(game, input, dt) {
       p.weapon = supply.type; p.ammo = WEAPONS[supply.type].ammo * CHARACTERS[game.characterId].ammoMultiplier;
     } else {
       if (p.health >= p.maxHealth) continue;
-      p.health = Math.min(p.maxHealth, p.health + supply.amount);
+      p.health = Math.min(p.maxHealth, p.health + supply.amount * CHARACTERS[game.characterId].pickupMultiplier);
     }
     supply.taken = true;
     game.stats.pickups += 1;
-    addScore(game, 1, 'pickups');
+    addScore(game, CHARACTERS[game.characterId].pickupMultiplier, 'pickups');
     sparks(game, supply.x + 7, supply.y + 7, "#89e0ae", 7);
   }
   for (const food of game.food) {
@@ -875,7 +901,7 @@ export function stepGame(game, input, dt) {
     food.taken = true;
     game.collectedFood.add(food.index);
     game.stats.foodCounts[food.type] = (game.stats.foodCounts[food.type] ?? 0) + 1;
-    addScore(game, 1, 'food');
+    addScore(game, CHARACTERS[game.characterId].pickupMultiplier, 'food');
     sparks(game, food.x + 9, food.y + 10, "#ffd873", 5);
   }
   const gateOpen = game.bosses.every(boss => boss.state === 'defeated');

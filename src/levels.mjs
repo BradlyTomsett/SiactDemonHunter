@@ -10,9 +10,9 @@ export const PLAYER = {
 };
 
 export const CHARACTERS = {
-  minister: { name: '大老师', maxHealth: 8, ammoMultiplier: 1, infiniteGrenades: false },
-  manager: { name: '张经理', maxHealth: 5, ammoMultiplier: 2, infiniteGrenades: false },
-  ma: { name: '马经理', maxHealth: 5, ammoMultiplier: 1, infiniteGrenades: true },
+  minister: { name: '大老师', maxHealth: 8, ammoMultiplier: 1, pickupMultiplier: 1, infiniteGrenades: false },
+  manager: { name: '张经理', maxHealth: 5, ammoMultiplier: 2, pickupMultiplier: 2, infiniteGrenades: false },
+  ma: { name: '马经理', maxHealth: 5, ammoMultiplier: 1, pickupMultiplier: 1, infiniteGrenades: true },
 };
 
 // 射程 = speed × lifetime，全部拉到 675px 以上，超过整屏（VIEW.width = 640）。
@@ -305,6 +305,10 @@ step(380, 560, 320, 'books', 24);
 step(60, 500, 280, 'shelf');
 step(380, 440, 280, 'crate', 30);
 step(60, 380, 240, 'drawer', 40);
+for (const y of [1400, 1100, 560]) {
+  const platform = tower.platforms.find(item => item.arrow && item.y === y);
+  platform.motion = { distance: 24, speed: 32 };
+}
 // 顶层：首领战场（从左侧的抽屉跳上来）
 landing(350, 320, 630);
 
@@ -467,7 +471,7 @@ for (const level of CHAPTERS) {
   if (spec.kind === 'mule') {
     Object.assign(level.boss, {
       warning: 0.9,
-      logicSpeed: 190,
+      logicSpeed: DROPPINGS.rollSpeed,
       summonAt: 0.5,
       summonTime: 2.8,
       summonHealth: 60,
