@@ -132,7 +132,7 @@ grenades(ch1, 1010, 180);
 health(ch1, 1350, 270);
 grenades(ch1, 1535, 142);
 weapon(ch1, 1900, 270, 'rapid');
-cp(ch1, 120, 262); cp(ch1, 560); cp(ch1, 1150); cp(ch1, 1500); cp(ch1, 1900);
+cp(ch1, 120, 262); cp(ch1, 560); cp(ch1, 1150); cp(ch1, 1500); cp(ch1, 1900); cp(ch1, 2150);
 hint(ch1, 0, '轻推摇杆瞄准，推远后移动');
 hint(ch1, 240, '跳上书本，再越过桌缝');
 hint(ch1, 700, '前方有巡逻怪，按住开火可以连发');
@@ -165,7 +165,7 @@ gunner(ch2, 2250);
 patrol(ch2, 2400, 2340, 2520);
 hazard(ch2, 2270, 50, GROUND - 14, 'crumb');
 weapon(ch2, 590, 134, 'pierce');
-weapon(ch2, 1800, 154, 'heavy');
+weapon(ch2, 1800, 154, 'spread');
 health(ch2, 700, 270);
 grenades(ch2, 1300, 270);
 health(ch2, 1900, 270);
@@ -205,10 +205,10 @@ hazard(ch3, 1000, 110, GROUND - 14, 'cable');
 hazard(ch3, 1160, 50, GROUND - 14, 'cable');
 hazard(ch3, 1950, 100, GROUND - 14, 'cable');
 weapon(ch3, 1600, 190, 'spread');
-health(ch3, 900, 270);
+weapon(ch3, 900, 270, 'rapid');
 grenades(ch3, 2600, 270);
 health(ch3, 2400, 270);
-cp(ch3, 80); cp(ch3, 400); cp(ch3, 920); cp(ch3, 1450); cp(ch3, 1900); cp(ch3, 2400);
+cp(ch3, 80); cp(ch3, 920); cp(ch3, 1900); cp(ch3, 2400);
 hint(ch3, 0, '电缆周期通电，暗淡时可安全通过');
 hint(ch3, 260, '空中飘的飞怪会俯冲，提前射它');
 hint(ch3, 800, '断崖之间有小跳板，别掉下去');
@@ -282,8 +282,10 @@ gunner(ch5, 1560);
 gunner(ch5, 2050);
 gunner(ch5, 2250);
 gunner(ch5, 2420);
+gunner(ch5, 670);
 patrol(ch5, 1950, 1880, 2060);
 patrol(ch5, 2520, 2460, 2580);
+hazard(ch5, 1450, 80, GROUND - 14, 'cable');
 weapon(ch5, 1440, 180, 'pierce');
 health(ch5, 700, 270);
 weapon(ch5, 1000, 270, 'spread');
@@ -307,6 +309,7 @@ decorate(ch6, 1400, 286, 'cup');
 grenades(ch6, 60, 270);
 weapon(ch6, 120, 270, 'heavy');
 health(ch6, 200, 270);
+weapon(ch6, 1120, 270, 'heavy');
 cp(ch6, 210);
 hint(ch6, 0, '把最后一发手榴弹留在这里');
 hint(ch6, 280, '它冲过来时跳起来躲开，落地的震波要跳过');
@@ -318,8 +321,11 @@ plank(floor, 40, 218, 185); shelf(floor, 240, 158, 160);
 crate(floor, 350, 256, 52); crate(floor, 960, 256, 50);
 patrol(floor, 820, 740, 900); gunner(floor, 1650); flyer(floor, 1500, 205, 1400, 1620);
 upperFlyer(floor, 490, 130, 460, 535);
+upperFlyer(floor, 1000, 130, 950, 1100);
 hazard(floor, 800, 60, GROUND - 14, 'cable');
-health(floor, 580, 270); grenades(floor, 1370, 270); weapon(floor, 1820, 270, 'rapid');
+hazard(floor, 1100, 90, GROUND - 14, 'spill');
+hazard(floor, 1600, 100, GROUND - 14, 'spill');
+health(floor, 580, 270); grenades(floor, 1370, 270); weapon(floor, 1820, 270, 'pierce');
 health(floor, 310, 142);
 cp(floor, 150); cp(floor, 750); cp(floor, 1350); cp(floor, 1850);
 hint(floor, 0, '来到办公室地面，越过桌腿和线缆'); hint(floor, 760, '电缆冒出火花时会造成伤害');
@@ -328,9 +334,12 @@ const monitor = createChapter('monitor', '第一关 · 7/9 显示器顶部', 190
 for (const [x,w] of [[0,520],[600,540],[1220,680]]) monitor.platforms.push({ x, y: GROUND, w, h: 22, kind: 'monitorTop' });
 crate(monitor, 350, 256, 50); shelf(monitor, 800, 225, 100); crate(monitor, 1470, 256, 48);
 flyer(monitor, 720, 210, 640, 950); patrol(monitor, 1510, 1420, 1660);
+gunner(monitor, 1000); flyer(monitor, 1100, 190, 1050, 1200);
 hazard(monitor, 740, 60, GROUND - 14, 'cable');
+hazard(monitor, 1000, 100, GROUND - 14, 'spill');
 health(monitor, 640, 270); weapon(monitor, 1250, 270, 'pierce');
-cp(monitor, 120); cp(monitor, 640); cp(monitor, 1260); cp(monitor, 1680);
+weapon(monitor, 1830, 270, 'heavy');
+cp(monitor, 120); cp(monitor, 1260); cp(monitor, 1680);
 hint(monitor, 0, '沿显示器顶部前进，小心屏幕间的空隙');
 
 const printer = createChapter('printer', '第一关 · 8/9 打印机', 1900, '穿越纸张与设备');
@@ -338,15 +347,22 @@ for (const [x,w] of [[0,610],[690,530],[1300,600]]) printer.platforms.push({ x, 
 plank(printer, 50, 218, 180); shelf(printer, 245, 158, 160);
 books(printer, 380, 258, 60, 28); crate(printer, 900, 256, 48); shelf(printer, 1500, 220, 100);
 gunner(printer, 850); patrol(printer, 1650, 1530, 1770); flyer(printer, 1100, 200, 1000, 1200);
+patrol(printer, 1400, 1330, 1520);
 upperFlyer(printer, 490, 130, 460, 535);
+upperFlyer(printer, 900, 130, 850, 950);
 hazard(printer, 1450, 55, GROUND - 14, 'crumb');
+hazard(printer, 700, 90, GROUND - 14, 'cable');
+hazard(printer, 1600, 80, GROUND - 14, 'cable');
 health(printer, 700, 270); grenades(printer, 1330, 270); weapon(printer, 1800, 270, 'heavy');
+weapon(printer, 1860, 270, 'heavy');
 grenades(printer, 315, 142);
 cp(printer, 120); cp(printer, 740); cp(printer, 1350); cp(printer, 1740);
 hint(printer, 0, '沿纸张向上可获取补给，小心高处飞怪');
 
 const CHAPTERS = [ch1, ch2, ch3, ch4, ch5, floor, monitor, printer, ch6];
 const BOSS_HEALTH = [45, 60, 63, 66, 72, 75, 78, 84, 90];
+// 招式模板按章节写死：0-0 / 2-0 / 1-2 / 1-2-2，让最难的连段留到后面。
+const BOSS_PATTERNS = [0, 0, 2, 0, 1, 2, 1, 2, 2];
 
 const bossCoats = [
   { name: '金黄', light: '#efaf43', dark: '#955028', mark: '#ffd88d', pattern: 'solid' },
@@ -375,7 +391,7 @@ for (const [index, level] of CHAPTERS.entries()) {
     spawnX: arenaLeft + (level === ch2 ? 370 : 310),
     health: BOSS_HEALTH[index],
     coat: bossCoats[index],
-    pattern: index % 3,
+    pattern: BOSS_PATTERNS[index],
   };
   level.exit = { ...level.exit, x: arenaRight + 7 };
   if (level !== ch2) cp(level, arenaLeft - 48);
