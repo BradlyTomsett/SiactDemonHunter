@@ -59,7 +59,19 @@ export const DROPPINGS = {
   edge: 2,
 };
 
-export const FOOD_TYPES = ['一碗面', '米饭', '汉堡', '烤肉串', '啤酒', '冰激凌', '火锅', '饺子', '包子', '卷饼'];
+export const FOOD_ICONS = {
+  老碗面: '🍜',
+  米饭: '🍚',
+  汉堡: '🍔',
+  烤肉串: '🍢',
+  啤酒: '🍺',
+  冰激凌: '🍦',
+  火锅: '🍲',
+  饺子: '🥟',
+  包子: '🥮',
+  卷饼: '🌯',
+};
+const FOOD_TYPES = Object.keys(FOOD_ICONS);
 
 function createChapter(id, name, width, subtitle) {
   return {

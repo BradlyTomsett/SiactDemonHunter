@@ -1,4 +1,4 @@
-import { VIEW, WEAPONS } from './levels.mjs';
+import { FOOD_ICONS, VIEW, WEAPONS } from './levels.mjs';
 import { cableActive } from './game.mjs';
 import { createOfficeArt } from './office-art.mjs';
 
@@ -92,45 +92,14 @@ export function createRenderer(canvas) {
 
   function foodItem(food, t) {
     const x = food.x + food.w / 2;
-    const y = food.y + 9 + Math.sin(t * 3 + food.index) * 1.2;
-    oval(x, y + 1, 13, 11, '#fff1bbcc');
-    if (food.type === '一碗面' || food.type === '米饭') {
-      round(x - 8, y, 16, 7, 3, '#f8f5e8');
-      oval(x, y, 7, 3, food.type === '一碗面' ? '#e8b856' : '#fffdf2');
-      if (food.type === '一碗面') line(x - 4, y - 1, x + 4, y + 1, '#a66035', 1);
-    } else if (food.type === '汉堡') {
-      oval(x, y - 3, 8, 4, '#e6a340');
-      round(x - 8, y, 16, 3, 1, '#69402b');
-      round(x - 8, y + 3, 16, 3, 1, '#e6a340');
-    } else if (food.type === '烤肉串') {
-      line(x - 7, y + 7, x + 7, y - 7, '#825a33', 1.5);
-      for (const offset of [-4, 0, 4]) round(x + offset - 2, y - offset - 2, 4, 4, 1, '#a34d2c');
-    } else if (food.type === '啤酒') {
-      round(x - 5, y - 6, 10, 13, 2, '#d89930');
-      round(x - 5, y - 7, 10, 4, 2, '#fff9e3');
-      line(x + 5, y - 3, x + 8, y + 3, '#a76825', 2);
-    } else if (food.type === '冰激凌') {
-      ctx.fillStyle = '#b77a43'; ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 9); ctx.closePath(); ctx.fill();
-      oval(x, y - 2, 6, 5, '#f195ae');
-    } else if (food.type === '火锅') {
-      round(x - 8, y - 1, 16, 8, 3, '#9a4535');
-      oval(x, y - 1, 7, 3, '#e7b35e');
-      oval(x - 3, y - 2, 2, 1, '#6f9d55');
-      oval(x + 3, y - 2, 2, 1, '#f4e4c5');
-    } else if (food.type === '饺子') {
-      oval(x, y + 1, 8, 5, '#fff6df');
-      line(x - 5, y - 1, x + 5, y - 1, '#caa979', 1);
-    } else if (food.type === '包子') {
-      oval(x, y, 7, 7, '#fff2d9');
-      line(x - 3, y - 3, x, y - 5, '#c7a985', 1);
-      line(x + 3, y - 3, x, y - 5, '#c7a985', 1);
-    } else if (food.type === '卷饼') {
-      round(x - 7, y - 4, 14, 8, 4, '#e3bd7a');
-      line(x - 3, y - 2, x - 3, y + 3, '#a77a43', 1);
-      line(x + 2, y - 2, x + 2, y + 3, '#a77a43', 1);
-    }
-    ctx.fillStyle = '#573d26'; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(food.type, x, y - 13);
+    const y = food.y + food.h / 2 + Math.sin(t * 3 + food.index) * 1.2;
+    ctx.save();
+    ctx.font = '20px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+    ctx.fillStyle = '#263a43';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(FOOD_ICONS[food.type] ?? '🍽️', x, y);
+    ctx.restore();
   }
   // 台词气泡：20px 粗体（原来 10px），带描边、投影和小尾巴，明显突出
   function bubble(text,cx,baseY,fg,bg,border){

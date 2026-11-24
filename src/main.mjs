@@ -1,6 +1,6 @@
 import { createGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
-import { CHARACTERS, FOOD_TYPES, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
+import { CHARACTERS, FOOD_ICONS, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
 import { drawCharacterPortraits } from "./portraits.mjs";
 
@@ -88,7 +88,9 @@ function panel(next, title, message, label, action) {
   characterSelect.hidden = next !== 'title';
   primary.hidden = false;
   byId("menu-title").textContent = title;
-  byId("menu-message").textContent = message;
+  const menuMessage = byId("menu-message");
+  menuMessage.textContent = message;
+  menuMessage.hidden = !message;
   byId("menu-chapter").textContent = game.level.name;
   primary.textContent = label;
   primaryAction = action;
@@ -97,6 +99,7 @@ function panel(next, title, message, label, action) {
   fullscreen.hidden = next !== "title" && next !== "paused";
   guide.hidden = next !== "title";
   setScreen(next);
+  overlay.scrollTop = 0;
   primary.focus({ preventScroll: true });
 }
 
@@ -208,29 +211,49 @@ function updateHud() {
 function showStageSummary(finalStage) {
   const player = game.player;
   const stats = game.stats;
-  const amount = value => value === Infinity ? '无限' : String(value);
-  const foodTotal = Object.values(stats.foodCounts).reduce((sum, count) => sum + count, 0);
-  const details = stats.scoreByType;
-  byId('summary-character').textContent = `角色：${CHARACTERS[game.characterId].name} · 剩余命数：${game.lives + 1}`;
-  byId('summary-health').textContent = `生命：${player.health} / ${player.maxHealth}`;
-  byId('summary-weapon').textContent = `武器：${WEAPONS[player.weapon].name} · 弹药：${amount(player.ammo)}`;
-  byId('summary-grenades').textContent = `手榴弹：${amount(player.grenades)}${player.boost > 0 ? ` · 火力提升剩余 ${Math.ceil(player.boost)} 秒` : ''}`;
-  byId('summary-score').textContent = `🏆 总积分：${game.score}`;
-  byId('summary-enemies').textContent = `击败小兵：${stats.enemyKills} 只`;
-  byId('summary-projectiles').textContent = `击落首领投掷物：${stats.bossProjectiles} 个`;
-  byId('summary-pickups').textContent = `拾取道具：${stats.pickups} 个`;
-  byId('summary-bosses').textContent = `击败 BOSS：${stats.bosses.length} 个${stats.bosses.length ? ` · ${stats.bosses.join('、')}` : ' · 无'}`;
-  byId('summary-food-total').textContent = `${foodTotal} / ${game.level.food.length}`;
-  const foodList = byId('summary-food-list');
-  foodList.replaceChildren();
-  for (const type of FOOD_TYPES) {
-    const item = document.createElement('span');
-    item.textContent = `${type} × ${stats.foodCounts[type] ?? 0}`;
-    foodList.append(item);
+  const amount = value => value === Infinity ? '∞' : String(value);
+  const summaryList = byId('summary-list');
+  const points = stats.scoreByType;
+  summaryList.replaceChildren();
+
+  function addItem(icon, label, value, names = '') {
+    const item = document.createElement('li');
+    item.title = `${label} ${value}${names ? ` · ${names}` : ''}`;
+    item.setAttribute('aria-label', item.title);
+    const symbol = document.createElement('span');
+    symbol.className = 'summary-icon';
+    symbol.textContent = icon;
+    symbol.setAttribute('aria-hidden', 'true');
+    const number = document.createElement('span');
+    number.textContent = `× ${value}`;
+    number.setAttribute('aria-hidden', 'true');
+    item.append(symbol, number);
+    if (names) {
+      const caption = document.createElement('small');
+      caption.textContent = names;
+      caption.setAttribute('aria-hidden', 'true');
+      item.append(caption);
+    }
+    summaryList.append(item);
   }
-  byId('summary-points').textContent = `本段获得 ${game.score - stats.startScore} 分`;
-  byId('summary-score-detail').textContent = `小兵 ${details.enemies} · BOSS ${details.bosses} · 投掷物 ${details.projectiles} · 食品 ${details.food} · 道具 ${details.pickups}`;
-  byId('summary-time').textContent = `本段用时 ${timeText(game.elapsed)}`;
+
+  addItem('🏆', '累计积分', game.score);
+  addItem('⭐', '本段积分', game.score - stats.startScore);
+  addItem('♥️', '生命值', `${player.health}/${player.maxHealth}`, CHARACTERS[game.characterId].name);
+  addItem('💚', '剩余命数', game.lives + 1);
+  addItem('🔫', '武器弹药', amount(player.ammo), WEAPONS[player.weapon].name);
+  addItem('💣', '手榴弹', amount(player.grenades));
+  if (player.boost > 0) addItem('⚡', '火力提升剩余时间', `${Math.ceil(player.boost)} 秒`);
+  addItem('👾', `击败小兵（${points.enemies} 分）`, stats.enemyKills);
+  addItem('👑', `击败首领（${points.bosses} 分）`, stats.bosses.length, stats.bosses.join('、'));
+  addItem('🎯', `击落首领投掷物（${points.projectiles} 分）`, stats.bossProjectiles);
+  addItem('📦', `拾取道具（${points.pickups} 分）`, stats.pickups);
+  addItem('🍽️', `食品收集（${points.food} 分）`, `${game.collectedFood.size}/${game.level.food.length}`);
+  addItem('⏱️', '本段用时', timeText(game.elapsed));
+  if (finalStage) addItem('⌛', '总用时', timeText(completedTime + game.elapsed));
+  for (const [type, icon] of Object.entries(FOOD_ICONS)) {
+    addItem(icon, type, stats.foodCounts[type] ?? 0);
+  }
   byId('reward-prompt').hidden = finalStage;
   stageSummary.hidden = false;
 }
@@ -249,13 +272,12 @@ function finish() {
     );
     return;
   }
-  const used = timeText(game.elapsed);
   if (levelIndex < LEVELS.length - 1) {
     const nextLives = game.lives;
     panel(
       "cleared",
       "本段通过",
-      `已抵达出口。用时 ${used}，剩余命数 ${nextLives + 1} 条。`,
+      "",
       "下一段",
       () => {
         completedTime += game.elapsed;
@@ -268,11 +290,12 @@ function finish() {
     rewards.hidden = false;
     const ammoButton = rewards.querySelector('[data-reward="ammo"]');
     ammoButton.querySelector('.ammo-reward-label').textContent = game.player.weapon === 'basic' ? '获得满弹霰弹枪' : '补满当前武器弹药';
+    rewards.querySelector('button').focus({ preventScroll: true });
   } else {
     panel(
       "cleared",
       "第一关通关",
-      `你越过了桌缝。总用时 ${timeText(completedTime + game.elapsed)}，剩余命数 ${game.lives + 1} 条。`,
+      "",
       "再玩一局",
       () => {
         completedTime = 0;

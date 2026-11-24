@@ -290,24 +290,20 @@ h1 {
 .game[data-screen="cleared"] h1 { color: #fff9e7; font-size: clamp(28px, 5vh, 44px); margin: 3px 0; }
 .game[data-screen="cleared"] #menu-message { color: #cde4db; font-size: 14px; }
 .stage-summary { margin-top: 12px; }
-.summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.summary-card {
-  min-width: 0; padding: 12px; border: 1px solid #78b5a855;
-  border-radius: 12px; background: #ffffff12;
+.summary-list {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px;
+  list-style: none; margin: 0; padding: 8px 0 12px;
+  border-block: 1px solid #78b5a855; font-variant-numeric: tabular-nums;
 }
-.summary-card h2 { margin: 0 0 8px; color: #8ee4c9; font-size: 15px; }
-.summary-card h2 span { color: #f6d792; font-size: 13px; }
-.summary-card p { margin: 5px 0; color: #eef8f2; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
-.summary-food-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
-.summary-food-list span { color: #eef8f2; font-size: 12px; line-height: 1.3; }
+.summary-list li { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-height: 29px; max-width: 100%; font-size: 14px; font-weight: 700; }
+.summary-list small { color: #b9dad1; font-size: 12px; overflow-wrap: anywhere; }
+.summary-icon { font: 20px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
 .reward-prompt { margin: 14px 0 0; color: #f7d492; font-size: 15px; font-weight: 800; }
 .game[data-screen="cleared"] .rewards { max-width: 640px; margin-top: 8px; }
 .game[data-screen="cleared"] .rewards button { min-height: 80px; padding: 5px; }
 .game[data-screen="cleared"] .secondary { color: #173840; }
 .game[data-screen="cleared"] .menu-actions { margin-top: 12px; }
-@media (max-width: 700px) {
-  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+@media (max-width: 700px) { .summary-list { column-gap: 12px; } }
 .primary, .secondary {
   min-height: 44px;
   padding: 7px 16px;
