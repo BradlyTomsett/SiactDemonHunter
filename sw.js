@@ -1,5 +1,5 @@
-const CACHE = 'sdh-v11';
-const ASSETS = ['./', './index.html', './style.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './src/main.mjs', './src/game.mjs', './src/input.mjs', './src/levels.mjs', './src/render.mjs', './src/office-art.mjs'];
+const CACHE = 'sdh-v12';
+const ASSETS = ['./', './index.html', './style.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './src/main.mjs', './src/game.mjs', './src/input.mjs', './src/levels.mjs', './src/render.mjs', './src/office-art.mjs', './src/portraits.mjs'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
 });

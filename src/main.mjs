@@ -2,6 +2,7 @@ import { createGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
 import { CHARACTERS, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
+import { drawCharacterPortraits } from "./portraits.mjs";
 
 const byId = id => document.getElementById(id);
 const render = createRenderer(byId("world"));
@@ -46,6 +47,7 @@ let noticeUntil = 0;
 let primaryAction = start;
 
 const input = createInput(controls, togglePause, () => screen === "playing");
+drawCharacterPortraits(characterSelect);
 
 for (let i = 0; i < Math.max(...Object.values(CHARACTERS).map(character => character.maxHealth)); i++) {
   const heart = document.createElement("span");
