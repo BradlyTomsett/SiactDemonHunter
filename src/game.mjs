@@ -45,7 +45,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
   game.player = {
     x: spawnX, y: spawnY - PLAYER.height,
     w: PLAYER.width, h: PLAYER.height, vx: 0, vy: 0, facing: 1, aimX: 1, aimY: 0,
-    grounded: false, coyote: 0, jumpBuffer: 0, cooldown: 0, flash: 0,
+    grounded: false, coyote: 0, jumpBuffer: 0, cooldown: 0, flash: 0, ladderCooldown: 0,
     characterId: game.characterId, maxHealth: character.maxHealth,
     health: Math.min(keep?.health ?? character.maxHealth, character.maxHealth), invincible: 0, knockback: 0,
     weapon: keep?.weapon ?? 'basic',
@@ -178,6 +178,32 @@ function movePlayer(game, input, dt) {
     p.aimX = p.facing;
     p.aimY = 0;
   }
+  p.ladderCooldown = Math.max(0, p.ladderCooldown - dt);
+  const verticalInput = Math.abs(input.aimY ?? 0) > .5 ? Math.sign(input.aimY) : 0;
+  const feet = p.y + p.h;
+  const ladder = (game.level.ladders ?? []).find(item => {
+    const center = p.x + p.w / 2;
+    return center >= item.x - 6 && center <= item.x + item.w + 6
+      && feet >= item.y - 1 && feet <= item.y + item.h + 3
+      && (verticalInput > 0 || feet > item.y + .5);
+  });
+  if (p.climbing && input.jump) {
+    p.climbing = false;
+    p.coyote = PLAYER.coyoteTime;
+    p.ladderCooldown = .35;
+  } else if ((p.climbing || verticalInput) && ladder && p.knockback <= 0 && p.ladderCooldown <= 0) {
+    p.climbing = true;
+    p.x = ladder.x + (ladder.w - p.w) / 2;
+    p.vx = 0;
+    p.vy = 0;
+    const nextFeet = clamp(feet + verticalInput * 95 * dt, ladder.y, ladder.y + ladder.h);
+    p.y = nextFeet - p.h;
+    p.grounded = nextFeet <= ladder.y || nextFeet >= ladder.y + ladder.h;
+    if (p.grounded && verticalInput) p.climbing = false;
+    return;
+  } else {
+    p.climbing = false;
+  }
   if (p.knockback <= 0) p.vx = approach(p.vx, input.move * PLAYER.speed, acceleration * dt);
   if (p.jumpBuffer > 0 && p.coyote > 0 && p.knockback <= 0) {
     p.vy = -PLAYER.jumpSpeed;
@@ -237,7 +263,7 @@ function addScore(game, points, type) {
 function damageTarget(game, target, amount, flash) {
   if (target.health <= 0) return;
   // 出场亮相（展示耳机）的 1 秒内无敌。
-  if (target === game.boss && ['summon', 'hidden', 'intro', 'enter'].includes(target.state)) return;
+  if (target === game.boss && ['waiting', 'summon', 'hidden', 'intro', 'enter', 'returning'].includes(target.state)) return;
   target.health = Math.max(0, target.health - amount);
   target.flash = flash;
   if (target.health > 0) return;
@@ -614,6 +640,15 @@ function stepMule(game, boss, cfg, dt) {
     return false;
   }
 
+  if (boss.state === 'returning') {
+    boss.x = approach(boss.x, boss.entryTarget, 180 * dt);
+    if (boss.x === boss.entryTarget) {
+      boss.state = 'intro';
+      boss.timer = 1.4;
+    }
+    return false;
+  }
+
   if (boss.state === 'waiting') {
     const previousCleared = game.bosses.slice(0, boss.number - 1).every(item => item.state === 'defeated');
     if (!previousCleared || player.x < cfg.trigger) return false;
@@ -638,9 +673,10 @@ function stepMule(game, boss, cfg, dt) {
     const dog = game.summon;
     if (!dog || dog.state === 'defeated') {
       boss.hidden = false;
-      boss.state = 'intro';
-      boss.timer = 1.4;
-      boss.x = cfg.arenaLeft + 30;
+      boss.state = 'returning';
+      boss.x = Math.max(cfg.arenaRight, game.camera + VIEW.width) + 10;
+      boss.entryTarget = clamp(game.camera + VIEW.width - boss.w - 45, cfg.arenaLeft + 20, cfg.arenaRight - boss.w - 10);
+      boss.direction = -1;
       boss.y = cfg.ground - boss.h;
       game.summon = null;
       game.boss = boss;
@@ -768,10 +804,11 @@ function updateHelper(game, dt) {
   const active = boss && !['waiting', 'defeated', 'hidden'].includes(boss.state);
   if (!active) { game.helper = null; return; }
   if (!game.helper) {
+    if (['intro', 'enter', 'returning', 'summon', 'dying'].includes(boss.state)) return;
     game.helper = {
-      x: clamp(game.player.x - 110, 24, game.level.width - 40),
+      x: Math.min(game.camera - 20, boss.cfg.arenaLeft - 20),
       y: boss.cfg.ground - 26, w: 14, h: 26,
-      timer: 0, facing: 1, bob: 0, speech: 0,
+      timer: 0, facing: 1, bob: 0, speech: 0, entering: true,
     };
   }
   const helper = game.helper;
@@ -779,8 +816,13 @@ function updateHelper(game, dt) {
   helper.bob += dt;
   helper.speech = Math.max(0, helper.speech - dt);
   const target = clamp(game.player.x + 80, 24, game.level.width - 40);
-  helper.x = clamp(approach(helper.x, target, 105 * dt), boss.cfg.arenaLeft + 6, boss.cfg.arenaRight - 22);
-  helper.facing = target < helper.x ? -1 : 1;
+  const destination = clamp(target, boss.cfg.arenaLeft + 6, boss.cfg.arenaRight - 22);
+  helper.facing = destination < helper.x ? -1 : 1;
+  helper.x = approach(helper.x, destination, 105 * dt);
+  if (helper.entering) {
+    if (helper.x < Math.max(boss.cfg.arenaLeft + 6, game.camera + 16)) return;
+    helper.entering = false;
+  }
   helper.timer -= dt;
   if (helper.timer > 0) return;
   helper.timer = 4 + Math.random() * 4;

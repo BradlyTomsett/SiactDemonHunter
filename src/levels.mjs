@@ -77,7 +77,7 @@ function createChapter(id, name, width, subtitle) {
   return {
     id, name, width, height: VIEW.height, subtitle,
     spawn: { x: 56, y: GROUND },
-    platforms: [], decoration: [], enemies: [], supplies: [], hazards: [],
+    platforms: [], ladders: [], decoration: [], enemies: [], supplies: [], hazards: [],
     checkpoints: [], hints: [],
     exit: { x: width - 74, y: GROUND - 50, w: 34, h: 50 },
     boss: null,
@@ -286,24 +286,24 @@ const towerEnemy = (type, x, y, minX, maxX) => tower.enemies.push(
 // 底层：办公室地面
 tower.platforms.push({ x: 0, y: 1520, w: 760, h: 22, kind: 'floor' });
 // 主路：左右两列交替，每级上升 60px，相邻两级水平错开 40px（不会出现「头顶被压住」）
-step(60, 1460, 280, 'drawer', 40);
-step(380, 1400, 320, 'crate', 30);
-step(60, 1340, 280, 'books', 24);
-step(380, 1280, 320, 'shelf');
-step(60, 1220, 280, 'drawer', 40);
-step(380, 1160, 320, 'crate', 30);
-step(60, 1100, 280, 'shelf');
-step(380, 1040, 320, 'books', 24);
+step(90, 1460, 260, 'drawer', 40);
+step(390, 1400, 310, 'crate', 30);
+step(150, 1340, 280, 'books', 24);
+step(360, 1280, 290, 'shelf');
+step(70, 1220, 300, 'drawer', 40);
+step(390, 1160, 310, 'crate', 30);
+step(100, 1100, 270, 'shelf');
+step(340, 1040, 310, 'books', 24);
 step(60, 980, 280, 'books', 24);
 landing(380, 920, 380);
-step(60, 860, 280, 'drawer', 40);
-step(380, 800, 320, 'crate', 30);
-step(60, 740, 280, 'shelf');
+step(90, 860, 290, 'drawer', 40);
+step(350, 800, 320, 'crate', 30);
+step(130, 740, 280, 'shelf');
 landing(380, 680, 400);
-step(60, 620, 280, 'drawer', 40);
-step(380, 560, 320, 'books', 24);
-step(60, 500, 280, 'shelf');
-step(380, 440, 280, 'crate', 30);
+step(70, 620, 300, 'drawer', 40);
+step(390, 560, 310, 'books', 24);
+step(120, 500, 280, 'shelf');
+step(360, 440, 300, 'crate', 30);
 step(60, 380, 240, 'drawer', 40);
 for (const y of [1400, 1100, 560]) {
   const platform = tower.platforms.find(item => item.arrow && item.y === y);
@@ -311,6 +311,14 @@ for (const y of [1400, 1100, 560]) {
 }
 // 顶层：首领战场（从左侧的抽屉跳上来）
 landing(350, 320, 630);
+
+// 梯子连接相邻固定平台，摇杆或方向键向上、向下即可攀爬。
+tower.ladders = [
+  { x: 180, y: 1460, w: 26, h: 60 },
+  { x: 385, y: 1280, w: 26, h: 60 },
+  { x: 355, y: 800, w: 26, h: 60 },
+  { x: 365, y: 440, w: 26, h: 60 },
+];
 
 // 偏离主路的支线平台：放食品和补给
 side(760, 1400, 120);
@@ -345,7 +353,7 @@ cp(tower, 500, 320);
 
 // 提示按高度触发
 tower.hints = [
-  { y: 1500, text: '踩着抽屉、文件盒和扶手往上跳' },
+  { y: 1500, text: '踩上抽屉往上跳；靠近梯子向上推即可攀爬' },
   { y: 1200, text: '跳跃时可以从平台下方穿过' },
   { y: 1000, text: '跳偏了会落回下一层，掉出画面底部才会扣命' },
   { y: 700, text: '注意空中的飞怪，先打掉再往上' },

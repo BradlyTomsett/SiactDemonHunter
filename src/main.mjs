@@ -183,7 +183,7 @@ function showTitle() {
   syncStageButtons();
   panel(
     "title",
-    "公司打狗",
+    "Siact打狗",
     "你在键盘旁醒来，身体只剩回形针那么高。穿过桌面，找到出口。",
     "开始游戏",
     start,
@@ -440,8 +440,8 @@ function confirmInstallRequest() {
   installRequested = true;
   install.textContent = '安装帮助';
   showInstallStatus(isAndroid
-    ? '已确认安装，请等待 Chrome 处理。在手机主屏幕上滑，搜索“公司打狗”。找到图标后，长按并选择“添加到主屏幕”。若找不到，回到 Chrome 菜单检查安装选项。'
-    : '安装请求已提交，请在系统的应用列表里查找“公司打狗”。');
+    ? '已确认安装，请等待 Chrome 处理。在手机主屏幕上滑，搜索“Siact打狗”。找到图标后，长按并选择“添加到主屏幕”。若找不到，回到 Chrome 菜单检查安装选项。'
+    : '安装请求已提交，请在系统的应用列表里查找“Siact打狗”。');
 }
 
 function showInstallHelp() {
@@ -450,7 +450,7 @@ function showInstallHelp() {
     return;
   }
   showInstallStatus(isAndroid
-    ? '请打开 Chrome 右上角的 ⋮ 菜单，选择“安装应用”或“安装并创建快捷方式”。如果已经安装，请在手机的应用列表里搜索“公司打狗”。'
+    ? '请打开 Chrome 右上角的 ⋮ 菜单，选择“安装应用”或“安装并创建快捷方式”。如果已经安装，请在手机的应用列表里搜索“Siact打狗”。'
     : '请打开浏览器菜单，选择“安装应用”或“添加到主屏幕”。');
 }
 

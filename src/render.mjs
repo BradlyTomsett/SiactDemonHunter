@@ -156,7 +156,7 @@ export function createRenderer(canvas) {
   }
 
   function dog(b, t, camera){
-    if (!b || b.state === 'waiting' || b.state === 'defeated' || (!b.health && b.state !== 'dying')) return;
+    if (!b || b.state === 'defeated' || (!b.health && b.state !== 'dying')) return;
     const puppy = Boolean(b.type);
     const intro = b.state === 'intro';
     const dashing = b.state === 'dash' || b.state === 'enter';
@@ -291,7 +291,7 @@ export function createRenderer(canvas) {
   }
 
   function mule(b, t, camera) {
-    if (!b || b.state === 'waiting' || b.state === 'defeated' || b.state === 'hidden') return;
+    if (!b || b.state === 'defeated' || b.state === 'hidden') return;
     const summoning = b.state === 'summon';
     const fallen = b.state === 'dying';
     const hit = b.flash > 0;
@@ -512,6 +512,13 @@ export function createRenderer(canvas) {
     ctx.translate(-Math.round(game.camera), -Math.round(cameraY));
     office.gaps(game.level, game.camera);
     for (const d of game.level.decoration) if (office.visible(d, game.camera, cameraY)) office.decoration(d, game.camera);
+    for (const ladder of game.level.ladders ?? []) {
+      if (!office.visible(ladder, game.camera, cameraY)) continue;
+      const { x, y, w, h } = ladder;
+      line(x + 3, y, x + 3, y + h, '#674b38', 4);
+      line(x + w - 3, y, x + w - 3, y + h, '#674b38', 4);
+      for (let rung = y + 8; rung < y + h; rung += 12) line(x + 3, rung, x + w - 3, rung, '#e4c68a', 3);
+    }
     for (const platform of game.platforms) {
       if (!office.visible(platform, game.camera, cameraY)) continue;
       ctx.save();
