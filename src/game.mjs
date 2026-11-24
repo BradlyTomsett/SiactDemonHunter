@@ -128,6 +128,7 @@ function movePlayer(game, input, dt) {
   p.jumpBuffer = input.jump ? PLAYER.jumpBuffer : Math.max(0, p.jumpBuffer - dt);
 
   if (input.move) p.facing = input.move;
+  else if (input.aimX) p.facing = Math.sign(input.aimX);
   if (input.aimX || input.aimY) {
     const length = Math.hypot(input.aimX, input.aimY);
     p.aimX = input.aimX / length;

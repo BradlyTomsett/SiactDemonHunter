@@ -264,13 +264,25 @@ h1 {
   gap: 6px; min-height: 98px; padding: 8px 5px; border: 1px solid #79b9ac;
   border-radius: 12px; color: #173840; background: #e8faf2; font-weight: 750; font-size: 13px;
 }
-.reward-icon {
-  display: grid; place-items: center; width: 44px; height: 44px; flex: none;
-  border-radius: 12px; font-size: 28px; line-height: 1; font-weight: 800;
+.reward-art {
+  position: relative; display: block; width: 70px; height: 54px; flex: none;
+  overflow: hidden; border: 2px solid #8bb7a9; border-radius: 12px;
+  background: linear-gradient(150deg, #e3f7ed, #b7e3d7);
 }
-.life-icon { color: #c93254; background: #ffe2e8; }
-.boost-icon { color: #8b5400; background: #ffedb7; }
-.ammo-icon { color: #185c79; background: #d4eff9; }
+.reward-art i, .reward-art b, .reward-art em { position: absolute; display: block; font-style: normal; }
+.life-art { background: linear-gradient(150deg, #ffe5df, #f5ad9d); border-color: #d58b80; }
+.life-art i { left: 15px; top: 15px; width: 38px; height: 28px; border: 3px solid #a64d50; border-radius: 5px; background: #fff9e9; box-shadow: 0 4px #ad6960; }
+.life-art i::before { content: ''; position: absolute; left: 8px; top: -9px; width: 15px; height: 7px; border: 3px solid #a64d50; border-bottom: 0; border-radius: 5px 5px 0 0; }
+.life-art b { left: 29px; top: 22px; width: 8px; height: 16px; background: #df5060; }
+.life-art b::after { content: ''; position: absolute; left: -4px; top: 4px; width: 16px; height: 8px; background: #df5060; }
+.boost-art { background: linear-gradient(150deg, #fff4c2, #f3bf64); border-color: #d39c43; }
+.boost-art i { left: 22px; top: 7px; width: 24px; height: 38px; border: 3px solid #80623b; border-radius: 6px; background: #e6743b; box-shadow: 0 4px #ab7346; }
+.boost-art i::before { content: ''; position: absolute; left: 5px; top: -7px; width: 8px; height: 5px; background: #80623b; }
+.boost-art b { left: 27px; top: 14px; font-size: 22px; line-height: 1; }
+.ammo-art { background: linear-gradient(150deg, #e0edfb, #a6c7dd); border-color: #7597a8; }
+.ammo-art i { left: 12px; top: 21px; width: 44px; height: 22px; border: 3px solid #405a5a; border-radius: 4px; background: #8eaa77; box-shadow: 0 4px #5d7466; }
+.ammo-art b, .ammo-art em { top: 10px; width: 7px; height: 20px; border: 2px solid #8b5d2a; border-radius: 5px 5px 1px 1px; background: #f2c45e; }
+.ammo-art b { left: 24px; } .ammo-art em { left: 37px; }
 .game[data-screen="cleared"] .overlay {
   display: block;
   padding: 0;
@@ -291,11 +303,11 @@ h1 {
 .game[data-screen="cleared"] #menu-message { color: #cde4db; font-size: 14px; }
 .stage-summary { margin-top: 12px; }
 .summary-list {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 6px 12px;
   list-style: none; margin: 0; padding: 8px 0 12px;
   border-block: 1px solid #78b5a855; font-variant-numeric: tabular-nums;
 }
-.summary-list li { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-height: 29px; max-width: 100%; font-size: 14px; font-weight: 700; }
+.summary-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-height: 32px; min-width: 0; font-size: 14px; font-weight: 700; }
 .summary-list small { color: #b9dad1; font-size: 12px; overflow-wrap: anywhere; }
 .summary-icon { font: 20px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
 .reward-prompt { margin: 14px 0 0; color: #f7d492; font-size: 15px; font-weight: 800; }

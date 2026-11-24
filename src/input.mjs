@@ -14,6 +14,7 @@ export function createInput(controls, onPause, canPlay) {
   let stickPointer = null;
   let stickX = 0;
   let stickY = 0;
+  let stickMove = 0;
   let originX = 0;
   let originY = 0;
 
@@ -21,6 +22,7 @@ export function createInput(controls, onPause, canPlay) {
     stickPointer = null;
     stickX = 0;
     stickY = 0;
+    stickMove = 0;
     stick.hidden = true;
     knob.style.transform = "translate(-50%, -50%)";
   }
@@ -33,10 +35,11 @@ export function createInput(controls, onPause, canPlay) {
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     knob.style.transform = `translate(calc(-50% + ${x * radius}px), calc(-50% + ${y * radius}px))`;
-    if (length < 0.22) { stickX = 0; stickY = 0; return; }
-    const angle = Math.round(Math.atan2(y, x) / (Math.PI / 4));
-    stickX = Math.round(Math.cos(angle * Math.PI / 4));
-    stickY = Math.round(Math.sin(angle * Math.PI / 4));
+    if (length < 0.12) { stickX = 0; stickY = 0; stickMove = 0; return; }
+    const angle = Math.round(Math.atan2(y, x) / (Math.PI / 8)) * (Math.PI / 8);
+    stickX = Math.abs(Math.cos(angle)) < 1e-6 ? 0 : Math.cos(angle);
+    stickY = Math.abs(Math.sin(angle)) < 1e-6 ? 0 : Math.sin(angle);
+    stickMove = length >= 0.55 ? Math.sign(stickX) : 0;
   }
 
   zone.addEventListener("pointerdown", event => {
@@ -143,10 +146,10 @@ export function createInput(controls, onPause, canPlay) {
     read() {
       const keyX = Number(active("right")) - Number(active("left"));
       const keyY = Number(active("down")) - Number(active("up"));
-      const x = stickX || keyX;
-      const y = stickY || keyY;
+      const x = stickPointer !== null ? stickX : keyX;
+      const y = stickPointer !== null ? stickY : keyY;
       const input = {
-        move: x,
+        move: stickPointer !== null ? stickMove : keyX,
         aimX: x,
         aimY: y,
         jump: jumpPressed,

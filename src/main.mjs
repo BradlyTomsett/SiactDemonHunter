@@ -160,7 +160,7 @@ function togglePause() {
 
 function updateDevice() {
   guide.textContent = touch.matches
-    ? "左手移动和瞄准 · 按住射击连发"
+    ? "轻推瞄准 · 推远移动 · 按住射击连发"
     : "方向键移动和瞄准 · 空格跳跃 · 按住 J 连发 · K 投掷";
   input.clear();
   syncVisibility();
