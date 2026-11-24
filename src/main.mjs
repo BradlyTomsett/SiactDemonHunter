@@ -135,6 +135,8 @@ function loadLevel(index, remainingLives, carry, score = 0) {
 // 把当前进度写进 localStorage，页面被系统回收后还能接着玩。
 function persist(extra = {}) {
   if (!game) return;
+  const transitioning = Number.isFinite(extra.nextLevel) && game.status === 'cleared';
+  if (!transitioning && (game.status !== 'playing' || !['playing', 'paused'].includes(screen))) return;
   writeSave(makeSnapshot(game, { levelIndex, completedTime, levelStartScore, ...extra }));
 }
 
@@ -150,7 +152,7 @@ function resumeFromSave(save) {
   selectedCharacter = CHARACTERS[save.characterId] ? save.characterId : "minister";
   levelIndex = target;
   completedTime = save.completedTime ?? 0;
-  levelStartScore = save.levelStartScore ?? 0;
+  levelStartScore = Number.isFinite(next) ? (save.score ?? 0) : (save.levelStartScore ?? 0);
   const carry = save.carry ? {
     ...save.carry,
     ammo: save.carry.ammo === "inf" ? Infinity : save.carry.ammo,
@@ -358,7 +360,7 @@ function finish() {
   if (levelIndex < LEVELS.length - 1) {
     const nextLives = game.lives;
     // 结算页被打断时，下次直接从下一关继续。
-    persist({ nextLevel: levelIndex + 1 });
+    persist({ nextLevel: levelIndex + 1, completedTime: completedTime + game.elapsed });
     panel(
       "cleared",
       "本关通过",
@@ -508,9 +510,9 @@ window.addEventListener("pageshow", event => {
   if (event.persisted) pause();
 });
 
-function playDefeatVoice() {
+function speakLine(text) {
   if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return;
-  const cry = new SpeechSynthesisUtterance("骡子救我！");
+  const cry = new SpeechSynthesisUtterance(text);
   cry.lang = "zh-CN";
   cry.pitch = 1.18;
   const voice = speechSynthesis.getVoices().find(item => /^zh[-_]CN$/i.test(item.lang));
@@ -524,11 +526,17 @@ function frame(now) {
   if (screen === "playing") {
     accumulator += seconds;
     const priorDefeats = game.clearedBosses;
+    const priorBoss = game.boss;
+    const priorHelperDrops = game.helperDrops;
     while (accumulator >= step && game.status === "playing") {
       stepGame(game, input.read(), step);
       accumulator -= step;
     }
-    if (game.clearedBosses !== priorDefeats) playDefeatVoice();
+    if (game.clearedBosses !== priorDefeats) speakLine('骡子救我！');
+    if (game.boss !== priorBoss && game.boss?.state === 'enter' && game.boss.summoned) {
+      speakLine('骡子爹我来了！');
+    }
+    if (game.helperDrops > priorHelperDrops) speakLine('我是好人！');
     updateHud();
     if (game.status !== "playing") finish();
     saveTimer -= seconds;

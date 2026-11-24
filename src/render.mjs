@@ -12,6 +12,22 @@ export function createRenderer(canvas) {
   const line = (x1,y1,x2,y2,color,width=1) => { ctx.strokeStyle=color; ctx.lineWidth=width; ctx.lineCap='round'; ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke(); };
   const office = createOfficeArt(ctx, { round, oval, line });
   const headphoneBand = new Path2D('M-9 3 C-12 -12 12 -12 9 3');
+  // 骡子的轮廓以脚底为基准，和首领碰撞框共用尺寸。
+  const muleArt = {
+    tail: new Path2D('M19 48 C9 47 6 54 7 64 Q2 69 6 75 Q13 73 12 65 Q11 56 21 55 Z'),
+    backLegs: new Path2D('M26 60 L37 61 L34 77 L37 78 L36 81 H24 L24 75 Z M59 61 L69 60 L71 77 L75 78 L75 81 H62 Z'),
+    legs: new Path2D('M19 56 L34 60 L29 70 L28 76 L33 78 L32 82 H18 L18 76 L21 68 Z M49 58 L63 57 L61 70 L63 76 L68 78 L68 82 H54 L52 76 Z'),
+    body: new Path2D('M17 47 Q25 42 38 46 Q48 47 55 40 L67 38 L71 53 Q70 63 59 67 Q44 71 26 66 Q12 63 12 55 Q12 50 17 47 Z'),
+    neck: new Path2D('M45 52 Q54 46 57 31 L70 30 Q79 41 71 56 Q64 63 54 60 Z'),
+    mane: new Path2D('M49 52 L51 45 L45 46 L53 37 L49 37 L57 27 L55 24 L64 23 L73 31 L63 39 L55 50 Z'),
+    earFar: new Path2D('M71 27 Q72 12 80 5 Q84 3 85 8 Q85 17 77 29 Z'),
+    earNear: new Path2D('M61 29 Q53 19 55 7 Q55 2 59 4 Q68 9 69 28 Z'),
+    earInner: new Path2D('M62 24 Q56 12 58 8 Q64 12 65 24 Z'),
+    head: new Path2D('M61 26 Q66 22 75 24 Q84 27 86 34 L94 39 Q99 42 96 48 Q94 54 84 53 L73 49 Q63 47 59 41 Q56 33 61 26 Z'),
+    muzzle: new Path2D('M84 34 Q87 37 94 39 Q99 42 96 48 Q94 53 85 52 Q77 49 78 44 Q79 38 84 34 Z'),
+    forelock: new Path2D('M59 30 Q61 22 72 22 Q78 22 82 26 L75 26 L76 29 L68 27 L65 32 L64 29 Z'),
+    collar: new Path2D('M53 46 Q59 53 72 51 L69 57 Q60 60 50 52 Z'),
+  };
 
   function player(p, t) {
     ctx.save();
@@ -143,7 +159,7 @@ export function createRenderer(canvas) {
     if (!b || b.state === 'waiting' || b.state === 'defeated' || (!b.health && b.state !== 'dying')) return;
     const puppy = Boolean(b.type);
     const intro = b.state === 'intro';
-    const dashing = b.state === 'dash';
+    const dashing = b.state === 'dash' || b.state === 'enter';
     const gait = dashing || b.type === 'patrol' ? Math.sin(t * (dashing ? 24 : 14)) * 4 : 0;
     const bob = intro ? Math.sin(t * 6) * 1.5 : 0;
     ctx.save();
@@ -226,7 +242,8 @@ export function createRenderer(canvas) {
     ctx.restore();
     if (puppy) return;
     const speechX = Math.min(camera + W - 100, Math.max(camera + 100, b.x + b.w / 2));
-    if (b.state === 'dying') bubble('骡子救我！', speechX, b.y - 8, '#9a242b', '#fff7e3', '#f27551');
+    if (b.state === 'enter' && b.x < camera + W) bubble('骡子爹我来了', speechX, b.y - 10, '#873000', '#fff3d5', '#fb9a51');
+    else if (b.state === 'dying') bubble('骡子救我！', speechX, b.y - 8, '#9a242b', '#fff7e3', '#f27551');
     else if (b.speech > 0) bubble('感谢骡子爹', speechX, b.y - 6, '#4a2f1d', '#fff7df', '#cfae7e');
     else if (intro) bubble('看我的橙色耳机！', speechX, b.y - 10, '#873000', '#fff3d5', '#fb9a51');
   }
@@ -266,42 +283,79 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  // 骡子：技能只有「逻辑」声波，半血时喊一次「狗来」并退到后场。
   function mule(b, t, camera) {
     if (!b || b.state === 'waiting' || b.state === 'defeated' || b.state === 'hidden') return;
     const summoning = b.state === 'summon';
+    const fallen = b.state === 'dying';
+    const hit = b.flash > 0;
+    const outline = '#202a33';
+    const paint = (path, color) => {
+      ctx.fillStyle = color;
+      ctx.fill(path);
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.stroke(path);
+    };
+
     ctx.save();
-    ctx.translate(b.x + b.w / 2, b.y);
-    ctx.scale(b.direction * b.w / 78, b.h / 64);
-    if (b.flash > 0) ctx.globalAlpha = 0.9;
-    // 腿
-    for (const x of [-16, -5, 8, 18]) line(x, 46, x, 59, '#6f7a85', 5);
-    for (const x of [-16, -5, 8, 18]) oval(x, 60, 4, 2.4, '#545e68');
-    // 尾巴
-    const tail = Math.sin(t * 5) * 3;
-    line(-27, 36, -34, 44 + tail, '#6f7a85', 3);
-    oval(-35, 47 + tail, 3, 5, '#4b545d');
-    // 身体
-    oval(-4, 38, 26, 15, '#9aa5af');
-    oval(-4, 43, 20, 9, '#828d98');
-    // 脖子 + 头
-    line(10, 34, 17, 16, '#9aa5af', 12);
-    oval(25, 13, 13, 11, '#a4afb9');
-    oval(37, 17, 9, 6, '#ccd2d7');
-    oval(39, 19, 2, 1.4, '#3d454d');
-    // 长耳朵
-    oval(18, -6, 3.6, 14, '#828d98');
-    oval(27, -8, 3.4, 14, '#9aa5af');
-    // 鬃毛
-    for (let y = 18; y < 38; y += 5) line(12, y, 9, y + 4, '#5c6570', 3);
-    // 眼睛和圆框眼镜
-    oval(30, 12, 2.4, 2.6, '#262d34');
-    ctx.strokeStyle = '#3f4a54';
-    ctx.lineWidth = 1.4;
+    oval(b.x + b.w / 2, b.y + b.h - 1, b.w * .45, 3, '#18273240');
+    ctx.translate(b.direction < 0 ? b.x + b.w : b.x, b.y + b.h);
+    const fall = fallen ? Math.min(1, Math.max(0, (2.25 - b.timer) * 3)) : 0;
+    if (fallen) ctx.globalAlpha *= Math.min(1, Math.max(0, b.timer * 3));
+    ctx.scale(b.direction * b.w / 100, b.h / 82 * (1 - fall * .54));
+    ctx.translate(0, -82);
+
+    paint(muleArt.tail, '#3d4651');
+    paint(muleArt.backLegs, '#4f5965');
+    paint(muleArt.legs, '#727f8a');
+    round(18, 77, 14, 5, 1, '#252d36');
+    round(54, 77, 14, 5, 1, '#252d36');
+
+    const fur = ctx.createLinearGradient(0, 36, 0, 69);
+    fur.addColorStop(0, hit ? '#f9c3a7' : '#b4c2cb');
+    fur.addColorStop(1, hit ? '#a87070' : '#5a6978');
+    paint(muleArt.body, fur);
+    paint(muleArt.neck, fur);
+    line(21, 52, 39, 53, '#d8e2e685', 1.6);
+
+    ctx.save();
+    const nod = summoning ? -0.12 : Math.sin(t * 4) * .035;
+    ctx.translate(63, 44);
+    ctx.rotate(nod);
+    ctx.translate(-63, -44);
+    paint(muleArt.mane, '#293540');
+    paint(muleArt.earFar, '#667481');
+    paint(muleArt.earNear, '#8e9ca7');
+    ctx.fillStyle = '#bd8b89';
+    ctx.fill(muleArt.earInner);
+    paint(muleArt.head, hit ? '#ffd2b1' : '#a7b6c0');
+    paint(muleArt.muzzle, '#e4d7c9');
+    paint(muleArt.forelock, '#293540');
+    oval(93, 43, 1.9, 1.4, '#42404a');
+    if (summoning) oval(89, 49, 5.2, 2.6, '#4a3236');
+    else line(86, 49, 94, 48, '#75606a', 1.2);
+
+    // 琥珀色圆镜片和粗眉在手机的小画面里也能分辨。
+    const eyeY = 34;
+    oval(76, eyeY, 6.8, 6.3, '#efd99e');
+    if (fallen) line(73, eyeY, 79, eyeY, outline, 1.5);
+    else {
+      oval(78, eyeY + .4, 2.2, 2.7, '#302833');
+      oval(79, eyeY - .5, .8, .8, '#fff8ec');
+      line(70, 28, 78, 29.5, outline, 2.3);
+    }
+    line(62, 33, 69, 34, outline, 1.8);
+    line(83, 34, 87, 35, outline, 1.5);
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.arc(30, 12, 4.4, 0, Math.PI * 2);
+    ctx.ellipse(76, eyeY, 6.8, 6.3, 0, 0, Math.PI * 2);
     ctx.stroke();
-    line(35, 11, 40, 10, '#3f4a54', 1.2);
+    ctx.restore();
+
+    paint(muleArt.collar, '#176562');
+    round(62, 53, 6, 5, 1, '#efbd61');
     ctx.restore();
 
     if (summoning) {
@@ -451,7 +505,14 @@ export function createRenderer(canvas) {
     ctx.translate(-Math.round(game.camera), -Math.round(cameraY));
     office.gaps(game.level, game.camera);
     for (const d of game.level.decoration) if (office.visible(d, game.camera, cameraY)) office.decoration(d, game.camera);
-    for (const p of game.level.platforms) if (office.visible(p, game.camera, cameraY)) office.platform(p, game.camera);
+    for (const platform of game.level.platforms) {
+      if (!office.visible(platform, game.camera, cameraY)) continue;
+      ctx.save();
+      // 攀爬关的平台可从下方穿过，用半透明的家具提示这一点。
+      if (game.level.height > H && platform.oneway) ctx.globalAlpha = .76;
+      office.platform(platform, game.camera);
+      ctx.restore();
+    }
     // A soft ground shadow shows where the player is lined up to land.
     const p = game.player;
     const center = p.x + p.w / 2;
@@ -541,7 +602,13 @@ export function createRenderer(canvas) {
     for (const e of game.enemies) if (office.visible(e, game.camera, cameraY)) dog(e, game.elapsed);
     if (game.boss?.kind === 'mule') mule(game.boss, game.elapsed, game.camera);
     else dog(game.boss, game.elapsed, game.camera);
-    if (game.helper) helperNpc(game.helper, game.elapsed);
+    if (game.helper) {
+      helperNpc(game.helper, game.elapsed);
+      if (game.helper.speech > 0) {
+        const x = Math.min(game.camera + W - 75, Math.max(game.camera + 75, game.helper.x + game.helper.w / 2));
+        bubble('我是好人', x, game.helper.y - 8, '#245346', '#fff9e6', '#75b9a0');
+      }
+    }
     for(const d of game.droppings) if(!d.destroyed)dropping(d);
     for(const w of game.waves) w.kind === 'logic' ? logicWave(w, game.elapsed) : headphone(w,game.elapsed);
     for(const s of game.enemyShots) headphone(s,game.elapsed);

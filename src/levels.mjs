@@ -265,10 +265,9 @@ hint(ch4, 2300, '最后一段了，检查点很密');
 const tower = createChapter('tower', '第 3 关 · 工位攀登', 1040, '踩着抽屉和文件盒爬到桌面顶层');
 tower.height = 1600;
 tower.spawn = { x: 90, y: 1520 };
-tower.foodSpots = [];
 
 const step = (x, y, w, kind, h) => {
-  const oneway = kind === 'shelf' || kind === 'plank';
+  const oneway = true;
   tower.platforms.push({
     x, y, w, kind,
     h: h ?? (oneway ? 8 : 28),
@@ -276,10 +275,9 @@ const step = (x, y, w, kind, h) => {
     arrow: true,
   });
 };
-const landing = (x, y, w) => tower.platforms.push({ x, y, w, h: 22, kind: 'desk', arrow: true });
+const landing = (x, y, w) => tower.platforms.push({ x, y, w, h: 22, kind: 'desk', oneway: true, arrow: true });
 const side = (x, y, w) => {
-  tower.platforms.push({ x, y, w, h: 14, kind: 'books' });
-  tower.foodSpots.push({ x: x + 8, y: y - 22 }, { x: x + w - 26, y: y - 22 });
+  tower.platforms.push({ x, y, w, h: 14, kind: 'books', oneway: true });
 };
 const towerEnemy = (type, x, y, minX, maxX) => tower.enemies.push(
   maxX === undefined ? { type, x, y } : { type, x, y, minX, maxX },
@@ -308,7 +306,7 @@ step(60, 500, 280, 'shelf');
 step(380, 440, 280, 'crate', 30);
 step(60, 380, 240, 'drawer', 40);
 // 顶层：首领战场（从左侧的抽屉跳上来）
-landing(420, 320, 560);
+landing(350, 320, 630);
 
 // 偏离主路的支线平台：放食品和补给
 side(760, 1400, 120);
@@ -317,14 +315,14 @@ side(760, 1160, 120);
 side(760, 1040, 120);
 side(400, 860, 120);
 side(720, 560, 120);
-health(tower, 120, 1520 - 30);
-weapon(tower, 700, 1520 - 30, 'spread');
-health(tower, 300, 920 - 30);
-grenades(tower, 620, 680 - 30);
-weapon(tower, 120, 380 - 30, 'pierce');
-health(tower, 500, 320 - 30);
-grenades(tower, 860, 320 - 30);
-weapon(tower, 120, 320 - 30, 'heavy');
+health(tower, 120, 1520 - 14);
+weapon(tower, 650, 1400 - 14, 'spread');
+health(tower, 470, 920 - 14);
+grenades(tower, 620, 680 - 14);
+weapon(tower, 120, 380 - 14, 'pierce');
+health(tower, 500, 320 - 14);
+grenades(tower, 860, 320 - 14);
+weapon(tower, 740, 320 - 14, 'heavy');
 
 // 敌人：地面巡逻 + 平台上的射手 + 中段少量飞行怪
 towerEnemy('patrol', 520, 1520, 420, 700);
@@ -344,7 +342,7 @@ cp(tower, 500, 320);
 // 提示按高度触发
 tower.hints = [
   { y: 1500, text: '踩着抽屉、文件盒和扶手往上跳' },
-  { y: 1200, text: '淡色搁板可以从下方穿过去' },
+  { y: 1200, text: '跳跃时可以从平台下方穿过' },
   { y: 1000, text: '跳偏了会落回下一层，掉出画面底部才会扣命' },
   { y: 700, text: '注意空中的飞怪，先打掉再往上' },
   { y: 380, text: '最上层是一片大平台' },
@@ -554,20 +552,25 @@ function mergeChapters(id, name, subtitle, parts) {
   return merged;
 }
 
-// 纵向关卡不走「沿地面扫食品」那套，直接沿支线平台铺满 40 份。
+// 纵向关卡按主路线分层放置食品。
 function finalizeTower(chapter) {
-  const spots = chapter.foodSpots ?? [];
-  if (!spots.length) throw new Error('工位攀登缺少食品位置');
-  chapter.food = Array.from({ length: 40 }, (_, index) => {
-    const spot = spots[index % spots.length];
-    const round = Math.floor(index / spots.length);
-    return {
-      x: spot.x + (round * 18) % 72,
-      y: spot.y,
-      w: 18, h: 20,
-      type: FOOD_TYPES[index % FOOD_TYPES.length],
-    };
-  });
+  const route = chapter.platforms.filter(platform => platform.arrow || platform.kind === 'floor');
+  chapter.food = [];
+  // 每层均匀放两份，避开补给；顶层首领场地留给战斗。
+  for (const platform of route.slice(0, -1)) {
+    const chosen = [];
+    for (const fraction of [.28, .72]) {
+      const preferred = platform.x + platform.w * fraction;
+      const candidates = Array.from({ length: Math.floor((platform.w - 40) / 10) }, (_, i) => platform.x + 20 + i * 10);
+      candidates.sort((a, b) => Math.abs(a - preferred) - Math.abs(b - preferred));
+      const x = candidates.find(candidate => chosen.every(previous => Math.abs(candidate - previous) >= 42)
+        && chapter.supplies.every(item => Math.abs(item.y - (platform.y - 14)) > 20 || Math.abs(item.x - candidate) >= 42));
+      if (x === undefined) throw new Error('工位攀登食品位置不足');
+      chosen.push(x);
+      const index = chapter.food.length;
+      chapter.food.push({ x, y: platform.y - 20, w: 18, h: 20, type: FOOD_TYPES[index % FOOD_TYPES.length] });
+    }
+  }
   chapter.regions = [{ x: 0, end: chapter.width, theme: 'tower' }];
   chapter.bosses = chapter.bosses ?? (chapter.boss ? [chapter.boss] : []);
   return chapter;

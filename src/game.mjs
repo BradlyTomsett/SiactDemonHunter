@@ -1,4 +1,4 @@
-import { CHARACTERS, DROPPINGS, ENEMIES, GRENADE, GROUND, PLAYER, VIEW, WEAPONS } from "./levels.mjs";
+import { CHARACTERS, DROPPINGS, ENEMIES, GRENADE, PLAYER, VIEW, WEAPONS } from "./levels.mjs";
 
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const approach = (start, end, step) => start + clamp(end - start, -step, step);
@@ -10,7 +10,7 @@ export function createGame(level, options = {}) {
     level, player: null, status: "playing", reason: "", camera: 0, elapsed: 0,
     lives: options.lives ?? PLAYER.lives, respawns: 0, respawnReason: "", checkpoint: -1,
     enemies: [], supplies: [], bullets: [], enemyShots: [], sparks: [], grenades: [], waves: [],
-    bosses: [], boss: null, clearedBosses: 0,
+    bosses: [], boss: null, clearedBosses: 0, helperDrops: 0,
     score: options.score ?? 0, collectedFood: new Set(), food: [],
     characterId: CHARACTERS[options.characterId] ? options.characterId : 'minister',
     stats: {
@@ -124,7 +124,7 @@ function die(game, reason) {
     game.respawnReason = reason;
     resetLevel(game, index);
     game.player.respawnTargetY = game.player.y;
-    game.player.y = -game.player.h;
+    game.player.y = Math.min(game.player.respawnTargetY, game.cameraY - game.player.h);
     game.player.respawning = true;
     game.player.invincible = PLAYER.respawnInvincible;
     return true;
@@ -212,7 +212,7 @@ function addScore(game, points, type) {
 function damageTarget(game, target, amount, flash) {
   if (target.health <= 0) return;
   // 出场亮相（展示耳机）的 1 秒内无敌。
-  if (target === game.boss && (target.state === 'summon' || target.state === 'hidden' || target.state === 'intro')) return;
+  if (target === game.boss && ['summon', 'hidden', 'intro', 'enter'].includes(target.state)) return;
   target.health = Math.max(0, target.health - amount);
   target.flash = flash;
   if (target.health > 0) return;
@@ -426,11 +426,26 @@ function stepBoss(game, dt) {
   const cfg = boss.cfg;
   if (!cfg || boss.state === 'defeated') return false;
   if (boss.kind === 'mule') return stepMule(game, boss, cfg, dt);
+  if (boss.state === 'enter') {
+    boss.x = approach(boss.x, boss.entryTarget, 280 * dt);
+    if (boss.x === boss.entryTarget) {
+      boss.timer -= dt;
+      if (boss.timer <= 0) {
+        boss.state = 'recovery';
+        boss.timer = cfg.recovery;
+      }
+    }
+    return false;
+  }
   if (boss.state === 'waiting') {
     const previousCleared = game.bosses.slice(0, boss.number - 1).every(item => item.state === 'defeated');
-    // 纵向关卡里 BOSS 在顶上，光看横坐标会在塔底就触发，所以要同时看高度。
-    const nearArena = Math.abs((game.player.y + game.player.h) - cfg.ground) < 70;
-    if (!previousCleared || !nearArena || game.player.x < cfg.trigger) return false;
+    // 纵向场地只有在玩家落到首领平台后才能封闭入口。
+    const vertical = (game.level.height ?? VIEW.height) > VIEW.height;
+    const onArena = !vertical || (game.player.grounded
+      && Math.abs(game.player.y + game.player.h - cfg.ground) < 1
+      && game.player.x >= cfg.arenaLeft
+      && game.player.x + game.player.w <= cfg.arenaRight);
+    if (!previousCleared || !onArena || game.player.x < cfg.trigger) return false;
     boss.state = 'intro'; boss.timer = cfg.intro;
   }
   boss.flash = Math.max(0, boss.flash - dt);
@@ -545,10 +560,11 @@ function createSummon(game, mule, cfg) {
     droppings: true,
   };
   const dog = {
-    x: cfg.arenaLeft + 120, y: cfg.ground - cfg.height,
+    x: Math.max(cfg.arenaRight, game.camera + VIEW.width) + 8, y: cfg.ground - cfg.height,
     w: cfg.width, h: cfg.height,
     health: dogCfg.health, maxHealth: dogCfg.health,
-    speech: 0, coat: dogCfg.coat, state: 'intro', timer: 1.2,
+    speech: 0, coat: dogCfg.coat, state: 'enter', timer: 0.6,
+    entryTarget: clamp(game.camera + VIEW.width - cfg.width - 35, cfg.arenaLeft + 20, cfg.arenaRight - cfg.width - 10),
     attack: 'dash', direction: -1, flash: 0, attackIndex: 0, dashLeft: 0,
     label: '6狗', kind: 'dog', summoned: true, hidden: false,
     number: mule.number, total: mule.total, cfg: dogCfg,
@@ -668,7 +684,7 @@ function separateBoss(game, player, boss, arena) {
 
 function stepDroppings(game, dt) {
   const boss = game.boss;
-  if (!boss || ['waiting', 'dying', 'defeated', 'summon', 'hidden'].includes(boss.state)) { game.droppings = []; return false; }
+  if (!boss || ['waiting', 'dying', 'defeated', 'summon', 'hidden', 'enter'].includes(boss.state)) { game.droppings = []; return false; }
   const cfg = boss.cfg;
   // 骡子自己不打屎，只有它召唤的 6 狗才吃。
   if (cfg?.droppings === false) { game.droppings = []; return false; }
@@ -729,27 +745,36 @@ function updateHelper(game, dt) {
   if (!game.helper) {
     game.helper = {
       x: clamp(game.player.x - 110, 24, game.level.width - 40),
-      y: GROUND - 26, w: 14, h: 26,
-      timer: 3.2, facing: 1, bob: 0,
+      y: boss.cfg.ground - 26, w: 14, h: 26,
+      timer: 0, facing: 1, bob: 0, speech: 0,
     };
   }
   const helper = game.helper;
+  helper.y = boss.cfg.ground - helper.h;
   helper.bob += dt;
+  helper.speech = Math.max(0, helper.speech - dt);
   const target = clamp(game.player.x + 80, 24, game.level.width - 40);
   helper.x = clamp(approach(helper.x, target, 105 * dt), boss.cfg.arenaLeft + 6, boss.cfg.arenaRight - 22);
   helper.facing = target < helper.x ? -1 : 1;
   helper.timer -= dt;
   if (helper.timer > 0) return;
-  helper.timer = 6.5 + Math.random() * 2.5;
+  helper.timer = 4 + Math.random() * 4;
+  helper.speech = 1.5;
+  game.helperDrops += 1;
   const heal = Math.random() < 0.5 || game.player.health >= game.player.maxHealth;
   game.supplies.push({
-    x: clamp(helper.x - 4, 10, game.level.width - 44),
-    y: GROUND - 34,
+    x: clamp(helper.x - 4, boss.cfg.arenaLeft, boss.cfg.arenaRight - 22),
+    y: helper.y - 20,
     w: 22, h: 22,
     type: heal ? undefined : 'ammo',
     amount: 2,
     taken: false,
     gift: true,
+    giftVx: Math.sign(game.player.x - helper.x) * 55,
+    giftVy: -150,
+    giftGround: boss.cfg.ground,
+    giftLeft: boss.cfg.arenaLeft,
+    giftRight: boss.cfg.arenaRight,
   });
 }
 
@@ -816,6 +841,15 @@ export function stepGame(game, input, dt) {
     if (!hazard.destroyed && (hazard.kind !== 'cable' || cableActive(game.elapsed)) && overlaps(p, hazard) && damagePlayer(game, hazard, hazard.damage)) return;
   }
   for (const supply of game.supplies) {
+    if (supply.giftVy !== undefined) {
+      supply.giftVy += 480 * dt;
+      supply.x = clamp(supply.x + supply.giftVx * dt, supply.giftLeft, supply.giftRight - supply.w);
+      supply.y += supply.giftVy * dt;
+      if (supply.y + supply.h >= supply.giftGround) {
+        supply.y = supply.giftGround - supply.h;
+        delete supply.giftVy;
+      }
+    }
     if (supply.taken || !overlaps(p, supply)) continue;
     if (supply.type === 'grenade') {
       if (p.grenades >= GRENADE.max) continue;
