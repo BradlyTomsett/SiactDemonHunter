@@ -620,8 +620,8 @@ export function stepGame(game, input, dt) {
   for (const supply of game.supplies) {
     if (supply.taken || !overlaps(p, supply)) continue;
     if (supply.type === 'grenade') {
-      if (p.grenades >= 6) continue;
-      p.grenades = Math.min(6, p.grenades + supply.amount);
+      if (p.grenades >= GRENADE.max) continue;
+      p.grenades = Math.min(GRENADE.max, p.grenades + supply.amount);
     } else if (WEAPONS[supply.type]) {
       p.weapon = supply.type; p.ammo = WEAPONS[supply.type].ammo * CHARACTERS[game.characterId].ammoMultiplier;
     } else {

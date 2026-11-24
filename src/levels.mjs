@@ -24,8 +24,8 @@ export const WEAPONS = {
   heavy: { name: '重击枪', ammo: 18, interval: 0.14, speed: 475, lifetime: 1.43, damage: 4, size: 9, color: '#ad60ff' },
 };
 
-// 手榴弹：伤害在原版 5 点基础上提高 50%。
-export const GRENADE = { damage: 7.5, radius: 80, fuse: 1.1 };
+// 手榴弹：伤害在原版 5 点基础上提高 50%。max 是玩家可携带的上限。
+export const GRENADE = { damage: 7.5, radius: 80, fuse: 1.1, max: 10 };
 
 // 三种小狗共用耳机弹，移动方式、射程和射击节奏各有区别。
 export const ENEMIES = {

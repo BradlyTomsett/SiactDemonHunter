@@ -1,6 +1,6 @@
 import { createGame, restoreGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
-import { CHARACTERS, FOOD_ICONS, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
+import { CHARACTERS, FOOD_ICONS, GRENADE, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
 import { drawCharacterPortraits } from "./portraits.mjs";
 import { clearSave, makeSnapshot, readSave, writeSave } from "./save.mjs";
@@ -240,7 +240,7 @@ function updateHud() {
   const weapon = WEAPONS[game.player.weapon];
   byId('score').textContent = game.score;
   byId('score-display').setAttribute('aria-label', `积分 ${game.score}`);
-  const grenades = game.player.grenades === Infinity ? '∞' : `${game.player.grenades}/6`;
+  const grenades = game.player.grenades === Infinity ? '∞' : `${game.player.grenades}/${GRENADE.max}`;
   byId('equipment').textContent = `${CHARACTERS[game.characterId].name} · ${weapon.name} ${game.player.ammo === Infinity ? '∞' : game.player.ammo}  炸弹 ${grenades}${game.player.boost > 0 ? ` 火力提升 ${Math.ceil(game.player.boost)}秒` : ''}`;
   if (hp !== previousHealth) {
     health.setAttribute("aria-label", `生命 ${hp} / ${game.player.maxHealth}`);
