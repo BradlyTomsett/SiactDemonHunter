@@ -14,6 +14,10 @@ const MATERIALS = {
   crate: ['#e3bc83', '#bc8952', '#805730'],
   plank: ['#efdcb9', '#b48d5b', '#69482e'],
   shelf: ['#a3afb4', '#71818a', '#3d4b56'],
+  worktop: ['#f4ce95', '#d99c59', '#896241'],
+  clipboard: ['#f7e5b2', '#bf9968', '#6c5546'],
+  tray: ['#bdecea', '#72bac2', '#417d8e'],
+  cargoLift: ['#ecdd94', '#a7894e', '#4d655f'],
 };
 
 export function createOfficeArt(ctx, { round, oval, line }) {
@@ -140,7 +144,8 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     if ((level.height ?? H) > H) return;
     let gaps = gapsByLevel.get(level);
     if (!gaps) {
-      const bases = level.platforms.filter(item => BASES.has(item.kind)).sort((a, b) => a.x - b.x);
+      const bases = level.platforms.filter(item => BASES.has(item.kind)
+        || (!item.oneway && (item.kind === 'slope' || item.kind === 'worktop'))).sort((a, b) => a.x - b.x);
       gaps = [];
       let right = 0;
       for (const base of bases) {
@@ -158,6 +163,17 @@ export function createOfficeArt(ctx, { round, oval, line }) {
       const mid = gap.x + gap.w / 2;
       line(mid - 4, GROUND + 17, mid, GROUND + 21, '#b1c0c7', 1.4);
       line(mid, GROUND + 21, mid + 4, GROUND + 17, '#b1c0c7', 1.4);
+    }
+  }
+
+  function liftGuide(platform) {
+    const top = platform.baseY - platform.motion.distance;
+    const bottom = platform.baseY + platform.motion.distance;
+    for (const x of [platform.baseX + 12, platform.baseX + platform.w - 12]) {
+      fill(x - 2, top, 5, bottom - top, '#48616d50');
+      line(x, top, x, bottom, '#dce8e6', 1);
+      round(x - 6, top - 4, 12, 8, 2, '#729092');
+      round(x - 6, bottom - 4, 12, 8, 2, '#729092');
     }
   }
 
@@ -226,6 +242,10 @@ export function createOfficeArt(ctx, { round, oval, line }) {
       line(x + w * .19, y + 43, x + w * .65, y + 43, '#a4b2bc');
       round(end - 46, y + 29, 33, 13, 3, '#285066');
       oval(end - 18, y + 35, 2, 2, '#83f1b4');
+    } else if (kind === 'worktop' && y < GROUND) {
+      for (const post of [x + 18, end - 29]) {
+        fill(post, y + h - 1, 11, GROUND - y - h + 1, '#657d7d78');
+      }
     } else if (kind === 'floor') {
       fill(x, y + h - 1, w, Math.max(0, H - y - h + 1), gradient(y + h, 50, '#65707a', '#292f3a'));
     }
@@ -268,6 +288,14 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     } else if (kind === 'drawer' || kind === 'crate') {
       round(x + 3, y + 4, w - 6, h - 7, 2, '#63422e60');
       round(x + w / 2 - 9, y + 9, 18, 4, 2, '#d8c8ab');
+    } else if (kind === 'worktop') {
+      stripe(42, start => line(start + 4, y + 7, Math.min(start + 21, end), y + 9, '#905f3d78', 1));
+    } else if (kind === 'clipboard') {
+      round(x + 4, y + 3, w - 10, 4, 1, '#f8eece');
+      round(end - 13, y + 3, 8, 4, 1, '#6d7d83');
+    } else if (kind === 'tray' || kind === 'cargoLift') {
+      stripe(18, left => line(left + 3, y + 6, Math.min(left + 10, end), y + h - 3,
+        kind === 'tray' ? '#e5f8ed' : '#4f625d', 2));
     } else if (kind === 'monitorTop' || kind === 'printerTop') {
       stripe(13, start => {
         if (start > x + 5 && start + 5 < end - 3) fill(start, y + 5, 5, 2, '#202a36');
@@ -282,7 +310,35 @@ export function createOfficeArt(ctx, { round, oval, line }) {
   }
 
   function decoration({ x, y, kind }, camera) {
-    if (kind === 'monitor') {
+    if (kind === 'fileRack') {
+      round(x, y - 68, 126, 68, 4, '#819695');
+      for (let i = 0; i < 6; i++) {
+        round(x + 8 + i * 18, y - 60, 12, 49, 2, i % 2 ? '#c5beae' : '#9fabaa');
+      }
+    } else if (kind === 'printerStack') {
+      round(x, y - 47, 104, 47, 5, '#879fa3');
+      round(x + 13, y - 38, 78, 10, 2, '#536f77');
+      round(x + 24, y - 21, 60, 15, 2, '#dce1d0');
+    } else if (kind === 'waterDispenser') {
+      round(x + 12, y - 88, 42, 40, 8, '#76b9c6');
+      round(x + 17, y - 82, 32, 3, 2, '#def2ef');
+      round(x, y - 55, 68, 55, 5, '#b7cfcd');
+      round(x + 13, y - 43, 42, 23, 4, '#638c8d');
+      round(x + 22, y - 40, 8, 5, 2, '#a96964');
+      round(x + 37, y - 40, 8, 5, 2, '#8ecfdf');
+    } else if (kind === 'keyboardDock') {
+      round(x, y - 22, 101, 22, 4, '#394851');
+      for (let i = 0; i < 8; i++) {
+        round(x + 5 + i * 12, y - 24, 9, 7, 1, '#748692');
+        round(x + 5 + i * 12, y - 14, 9, 5, 1, '#667c86');
+      }
+    } else if (kind === 'deskPlant') {
+      round(x + 10, y - 26, 39, 26, 4, '#a5684e');
+      line(x + 30, y - 21, x + 27, y - 60, '#4a815e', 3);
+      for (const [dx, dy, rx] of [[14, -42, 14], [42, -51, 15], [22, -63, 12]]) {
+        oval(x + dx, y + dy, rx, 6, '#5f9d73');
+      }
+    } else if (kind === 'monitor') {
       round(x + 65, y - 39, 25, 37, 3, gradient(y - 39, 37, '#415262', '#18242d'));
       screen(x, y - 144, 155, 111, camera);
       oval(x + 146, y - 39, 1.3, 1, '#8ecfc1');
@@ -313,5 +369,5 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     }
   }
 
-  return { background, gaps, platform, decoration, visible };
+  return { background, gaps, liftGuide, platform, decoration, visible };
 }

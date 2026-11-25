@@ -10,7 +10,7 @@ export function createGame(level, options = {}) {
     level, player: null, status: "playing", reason: "", camera: 0, elapsed: 0,
     lives: options.lives ?? PLAYER.lives, respawns: 0, respawnReason: "", checkpoint: -1,
     enemies: [], supplies: [], bullets: [], enemyShots: [], sparks: [], grenades: [], waves: [],
-    bosses: [], boss: null, clearedBosses: 0, helperDrops: 0,
+    bosses: [], boss: null, clearedBosses: 0, muleReturnHealth: null, helperDrops: 0,
     clearedHordes: new Set(), hordeStarts: 0,
     score: options.score ?? 0, collectedFood: new Set(), food: [],
     characterId: CHARACTERS[options.characterId] ? options.characterId : 'minister',
@@ -26,6 +26,21 @@ export function createGame(level, options = {}) {
 
 function enemyObstacle(platform) {
   return !platform.broken && !platform.oneway && platform.kind !== 'slope';
+}
+
+function surfaceYAt(platform, x) {
+  return platform.y - (platform.rise ?? 0) * (x - platform.x) / platform.w;
+}
+
+function blocksShot(shot, platform) {
+  if (platform.broken || platform.oneway) return false;
+  if (platform.kind !== 'slope') return overlaps(shot, platform);
+  const left = Math.max(shot.x, platform.x);
+  const right = Math.min(shot.x + shot.w, platform.x + platform.w);
+  if (left >= right) return false;
+  const a = surfaceYAt(platform, left);
+  const b = surfaceYAt(platform, right);
+  return shot.y + shot.h > Math.min(a, b) && shot.y < Math.max(a, b) + platform.h;
 }
 
 function makeEnemy(spawn, platforms) {
@@ -111,6 +126,11 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     kind: cfg.kind ?? 'dog', summoned: false, hidden: false,
     number: index + 1, total: configs.length, cfg,
   }));
+  const mule = game.bosses.find(boss => boss.kind === 'mule');
+  if (mule && game.muleReturnHealth !== null) {
+    mule.health = Math.min(mule.maxHealth, game.muleReturnHealth);
+    mule.calledDog = true;
+  }
   // 死亡重来时，已经打赢的 BOSS 保持倒地，否则会被迫回头重打。
   for (let i = 0; i < game.clearedBosses && i < game.bosses.length; i++) {
     game.bosses[i].state = 'defeated';
@@ -131,16 +151,19 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
 function nearestCheckpoint(game, player) {
   const points = game.level.checkpoints || [];
   let index = -1;
-  // 纵向关卡按攀爬高度判断：只认已经爬到或爬过的检查点，取最高的那个。
+  // 纵向关卡要在检查点所在的固定台面落地，跳到同样高度不会提前解锁。
   if ((game.level.height ?? VIEW.height) > VIEW.height) {
-    let bestY = Infinity;
-    for (let i = 0; i < points.length; i++) {
-      if (player.y + player.h <= points[i].y + 6 && points[i].y < bestY) {
-        bestY = points[i].y;
-        index = i;
-      }
+    if (!player.grounded || player.climbing) return -1;
+    const feet = player.y + player.h;
+    const center = player.x + player.w / 2;
+    for (let i = points.length - 1; i >= 0; i--) {
+      const point = points[i];
+      if (Math.abs(feet - point.y) >= 1) continue;
+      if (game.platforms.some(platform => !platform.motion && !platform.broken && platform.y === point.y
+        && center >= platform.x && center <= platform.x + platform.w
+        && point.x >= platform.x && point.x + player.w <= platform.x + platform.w)) return i;
     }
-    return index;
+    return -1;
   }
   for (let i = 0; i < points.length; i++) {
     if (points[i].x <= player.x + player.w / 2 && player.y + player.h <= points[i].y + 1) index = i;
@@ -296,9 +319,10 @@ function movePlayer(game, input, dt) {
     if (solid.kind !== 'slope' || solid.broken) continue;
     const center = p.x + p.w / 2;
     if (center < solid.x || center > solid.x + solid.w) continue;
-    const t = (center - solid.x) / solid.w;
-    const surfaceY = solid.y - (solid.rise ?? 0) * t;
+    const surfaceY = surfaceYAt(solid, center);
     const feetY = p.y + p.h;
+    // 下坡与平面相接时，先让角色走出平面，再落到坡面，避免身体嵌进台面。
+    if (solid.rise < 0 && p.grounded && feetY < surfaceY) continue;
     if (p.vy >= 0 && feetY >= surfaceY - 8 && feetY <= surfaceY + 24) {
       p.y = surfaceY - p.h;
       p.vy = 0;
@@ -395,6 +419,8 @@ function damageTarget(game, target, amount, flash) {
 
   // 召唤出来的 6 狗不算「第 N 只首领」，否则死亡回退时会把骡子一起算成已击败。
   if (target.summoned) {
+    const mule = game.bosses.find(boss => boss.kind === 'mule' && boss.state === 'hidden');
+    if (mule) game.muleReturnHealth = mule.health;
     target.state = 'dying';
     target.timer = 2.25;
     game.waves = [];
@@ -441,7 +467,7 @@ function stepShots(game, fire, dt) {
     bullet.x += dx;
     bullet.y += dy;
     bullet.life -= dt;
-    if (game.platforms.some(solid => !solid.broken && !solid.oneway && overlaps(sweep, solid))) return false;
+    if (game.platforms.some(solid => blocksShot(sweep, solid))) return false;
     const crumb = game.hazards.find(h => h.kind === 'crumb' && !h.destroyed && overlaps(h, sweep));
     if (crumb) { crumb.destroyed = true; sparks(game, crumb.x + crumb.w / 2, crumb.y, '#c79555', 7); return false; }
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
@@ -542,7 +568,8 @@ function startHordes(game) {
     const direction = center < (left + right) / 2 ? -1 : 1;
     // 可塌书堆迟早会恢复，也作为入场路线的障碍处理。
     const obstacles = game.platforms.filter(platform => !platform.oneway).map(platform => platform.rise
-      ? { ...platform, y: platform.y - platform.rise, h: platform.h + platform.rise } : platform);
+      ? { ...platform, y: Math.min(platform.y, platform.y - platform.rise), h: platform.h + Math.abs(platform.rise) }
+      : platform);
     let groundSlot = 0, airSlot = 0;
     const wave = [];
     for (const [order, type] of hordeFormation.entries()) {
@@ -654,7 +681,8 @@ function stepEnemies(game, dt) {
       }
       const dx = Math.abs(p.x - enemy.x);
       if (dx > 26 && Math.abs(p.y - enemy.y) < 120) {
-        moveEnemy(enemy, enemy.direction * type.speed * dt, 'x', game.platforms, 0, game.level.width - enemy.w);
+        moveEnemy(enemy, enemy.direction * type.speed * dt, 'x', game.platforms,
+          enemy.minX ?? 0, enemy.maxX ?? game.level.width - enemy.w);
       }
       continue;
     }
@@ -683,7 +711,7 @@ function stepEnemies(game, dt) {
     shot.y += shot.vy * dt;
     shot.life -= dt;
     if (shot.life <= 0) return false;
-    if (game.platforms.some(solid => !solid.broken && !solid.oneway && overlaps(shot, solid))) return false;
+    if (game.platforms.some(solid => blocksShot(shot, solid))) return false;
     if (overlaps(shot, game.player)) {
       damagePlayer(game, shot, 1);
       return false;
@@ -768,16 +796,20 @@ function stepGrenades(game, input, dt) {
       // 单向平台允许炸弹从下方飞过，落下时和普通地面一样反弹。
       let landing = null;
       const oldBottom = oldY + g.h;
-      const fall = g.y - oldY;
       for (const platform of game.platforms) {
         if (platform.broken) continue;
-        if (platform.y < oldBottom || platform.y > oldBottom + fall) continue;
-        const progress = (platform.y - oldBottom) / fall;
+        const startY = platform.previousY ?? surfaceYAt(platform, oldX + g.w / 2);
+        const endY = surfaceYAt(platform, g.x + g.w / 2);
+        const before = startY - oldBottom;
+        const after = g.y + g.h - endY;
+        if (before < 0 || after < 0 || before + after === 0) continue;
+        const progress = before / (before + after);
         const xAtImpact = oldX + (g.x - oldX) * progress;
         if (xAtImpact + g.w <= platform.x || xAtImpact >= platform.x + platform.w) continue;
-        if (!landing || platform.y < landing.y) landing = platform;
+        if (!landing || progress < landing.progress) landing = { x: xAtImpact, y: startY + (endY - startY) * progress, progress };
       }
       if (landing) {
+        g.x = landing.x;
         g.y = landing.y - g.h;
         g.vy *= -0.28;
         g.vx *= 0.7;
@@ -1394,6 +1426,13 @@ export function restoreGame(game, snapshot) {
   if (Array.isArray(snapshot.collectedFood)) game.collectedFood = new Set(snapshot.collectedFood);
   if (Array.isArray(snapshot.clearedHordes)) game.clearedHordes = new Set(snapshot.clearedHordes);
   if (Number.isFinite(snapshot.clearedBosses)) game.clearedBosses = snapshot.clearedBosses;
+  if (Number.isFinite(snapshot.muleReturnHealth) && snapshot.muleReturnHealth > 0) {
+    game.muleReturnHealth = snapshot.muleReturnHealth;
+  } else if (snapshot.muleReturnHealth === undefined && game.level.boss?.kind === 'mule'
+    && snapshot.stats?.bosses?.some(label => label === '6狗' || label.startsWith('6狗（'))) {
+    // 旧版只记录打败过的首领名称，用结算记录恢复骡子的第二阶段。
+    game.muleReturnHealth = game.level.boss.health * game.level.boss.summonAt;
+  }
   if (Number.isFinite(snapshot.elapsed)) game.elapsed = snapshot.elapsed;
   const carry = snapshot.carry ? {
     ...snapshot.carry,

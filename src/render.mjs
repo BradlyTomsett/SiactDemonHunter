@@ -585,6 +585,9 @@ export function createRenderer(canvas) {
     ctx.translate(-Math.round(game.camera), -Math.round(cameraY));
     office.gaps(game.level, game.camera);
     for (const d of game.level.decoration) if (office.visible(d, game.camera, cameraY)) office.decoration(d, game.camera);
+    for (const platform of game.platforms) {
+      if (platform.kind === 'cargoLift') office.liftGuide(platform);
+    }
     for (const ladder of game.level.ladders ?? []) {
       if (!office.visible(ladder, game.camera, cameraY)) continue;
       const { x, y, w, h } = ladder;
@@ -671,7 +674,7 @@ export function createRenderer(canvas) {
     let guideScore = Infinity;
     const feet = game.player.y + game.player.h;
     for (const platform of game.platforms) {
-      if (!platform.arrow) continue;
+      if (!platform.arrow && platform.kind !== 'cargoLift') continue;
       const dy = feet - platform.y;
       if (dy <= 0 || dy > 100) continue;
       const dx = Math.max(0, platform.x - (game.player.x + game.player.w), game.player.x - (platform.x + platform.w));

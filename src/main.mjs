@@ -2,7 +2,7 @@ import { createGame, restoreGame, stepGame } from "./game.mjs";
 import { createInput } from "./input.mjs";
 import { CHARACTERS, GRENADE, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
-import { clearSave, makeSnapshot, readSave, writeSave } from "./save.mjs";
+import { clearSave, decodeCarry, makeSnapshot, readSave, writeSave } from "./save.mjs";
 
 const byId = id => document.getElementById(id);
 const render = createRenderer(byId("world"));
@@ -147,29 +147,28 @@ function clearProgress() {
 
 function resumeFromSave(save) {
   const index = Math.max(0, Math.min(LEVELS.length - 1, save.levelIndex ?? 0));
-  const next = save.nextLevel;
-  const target = Number.isFinite(next) ? Math.min(LEVELS.length - 1, next) : index;
+  const pendingReward = save.nextLevel === index + 1 && save.nextLevel < LEVELS.length;
   selectedCharacter = CHARACTERS[save.characterId] ? save.characterId : "minister";
-  levelIndex = target;
-  completedTime = save.completedTime ?? 0;
-  levelStartScore = Number.isFinite(next) ? (save.score ?? 0) : (save.levelStartScore ?? 0);
-  const carry = save.carry ? {
-    ...save.carry,
-    ammo: save.carry.ammo === "inf" ? Infinity : save.carry.ammo,
-    grenades: save.carry.grenades === "inf" ? Infinity : save.carry.grenades,
-  } : null;
-  game = createGame(LEVELS[target], {
+  levelIndex = index;
+  completedTime = Math.max(0, (save.completedTime ?? 0) - (pendingReward ? (save.elapsed ?? 0) : 0));
+  levelStartScore = save.levelStartScore ?? 0;
+  game = createGame(LEVELS[index], {
     lives: save.lives ?? PLAYER.lives,
-    carry,
+    carry: decodeCarry(save.carry),
     score: save.score ?? 0,
     characterId: selectedCharacter,
   });
-  if (!Number.isFinite(next)) restoreGame(game, save);
+  restoreGame(game, save);
   previousRespawns = game.respawns;
   previousHealth = -1;
   previousLives = -1;
   byId("level-name").textContent = game.level.name;
   updateHud();
+  if (pendingReward) {
+    game.status = 'cleared';
+    finish();
+    return;
+  }
   setScreen("playing");
   showNotice(`已继续上次进度：${game.level.name}`);
   saveTimer = 2;
@@ -359,7 +358,7 @@ function finish() {
   }
   if (levelIndex < LEVELS.length - 1) {
     const nextLives = game.lives;
-    // 结算页被打断时，下次直接从下一关继续。
+    // 记录待领取的奖励，重新打开页面时先恢复本关结算。
     persist({ nextLevel: levelIndex + 1, completedTime: completedTime + game.elapsed });
     panel(
       "cleared",
