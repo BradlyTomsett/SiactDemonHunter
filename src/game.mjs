@@ -39,6 +39,7 @@ function makeEnemy(spawn, platforms) {
     flash: 0, tell: 0, cooldown: type.interval ? type.interval * 0.6 : 0,
     phase: spawn.phase ?? 0,
   };
+  if (type.shieldHealth) enemy.shieldHealth = type.shieldHealth;
   if (enemy.type === 'flyer') {
     let obstacle = platforms.find(item => enemyObstacle(item) && overlaps(enemy, item));
     while (obstacle) {
@@ -447,9 +448,12 @@ function stepShots(game, fire, dt) {
     if (dropping) { dropping.destroyed = true; game.stats.bossProjectiles += 1; addScore(game, 1, 'projectiles'); sparks(game, dropping.x, dropping.y, "#d9a46c", 6); return false; }
     const enemy = targets.find(target => target.health > 0 && !bullet.hit.includes(target) && overlaps(target, sweep));
     if (!enemy) return bullet.life > 0 && bullet.x > -12 && bullet.x < game.level.width && bullet.y > -12 && bullet.y < (game.level.height ?? VIEW.height) + 12;
-    // 盾牌狗正面挡子弹：从它面朝的方向打过来会被弹开，绕后或用手榴弹才有效。
-    if (enemy.type === 'shielder' && Math.sign(bullet.vx) === -enemy.direction) {
-      sparks(game, bullet.x + bullet.w / 2, bullet.y + bullet.h / 2, '#9fd0e0', 5);
+    // 正面子弹由盾牌吸收，打碎后可以直接伤到本体。
+    if (enemy.shieldHealth > 0 && Math.sign(bullet.vx) === -enemy.direction) {
+      enemy.shieldHealth = Math.max(0, enemy.shieldHealth - bullet.damage);
+      const shattered = enemy.shieldHealth === 0;
+      sparks(game, bullet.x + bullet.w / 2, bullet.y + bullet.h / 2,
+        shattered ? '#ffdc90' : '#9fd0e0', shattered ? 11 : 5);
       return false;
     }
     damageTarget(game, enemy, bullet.damage, 0.12);
@@ -642,7 +646,7 @@ function stepEnemies(game, dt) {
       stepCharger(enemy, type, p, game.platforms, dt);
       continue;
     } else if (enemy.type === 'shielder') {
-      // 盾牌狗：每 1.2 秒才转一次身，玩家可以趁它没转过来绕后开枪。
+      // 每 1.2 秒才转一次身，玩家也可以绕后直接射击。
       enemy.turnTimer = (enemy.turnTimer ?? 1.2) - dt;
       if (enemy.turnTimer <= 0) {
         enemy.turnTimer = 1.2;

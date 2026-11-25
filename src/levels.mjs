@@ -48,9 +48,9 @@ export const ENEMIES = {
     range: 300, interval: 2.4, telegraph: 0.55, shotSpeed: 160,
     chargeSpeed: 205, chargeTime: 0.75, stun: 0.9,
   },
-  // 盾牌狗：正面挡子弹，必须绕到背后或者用手榴弹。
+  // 盾牌狗：正面盾牌可以打碎，绕后射击或用手榴弹可直接伤到本体。
   shielder: {
-    width: 30, height: 26, speed: 34, health: 6, damage: 1,
+    width: 30, height: 26, speed: 34, health: 6, shieldHealth: 3, damage: 1,
     range: 0, interval: 0, telegraph: 0,
   },
 };

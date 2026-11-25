@@ -183,7 +183,7 @@ export function createRenderer(canvas) {
     furMarks(b.coat, false);
     if (!b.coat) oval(6, 34, 12, 12, '#edc399');
     if (b.type === 'gunner') line(-7, 30, 15, 31, '#226ec9', 4);
-    if (b.type === 'shielder') {
+    if (b.shieldHealth > 0) {
       // 盾牌画在朝向玩家的一侧
       round(14, 16, 7, 24, 3, '#6b4f2f');
       round(15, 18, 5, 20, 2, '#c9a469');
