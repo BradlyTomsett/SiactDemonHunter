@@ -477,6 +477,56 @@ function fireEnemyShot(game, enemy) {
 
 const hordeFormation = ['patrol', 'flyer', 'gunner', 'patrol', 'flyer', 'patrol', 'gunner', 'flyer', 'patrol', 'gunner'];
 
+function hordeEntryPosition(entry, progress) {
+  return {
+    x: entry.from.x + (entry.to.x - entry.from.x) * progress,
+    y: entry.from.y + (entry.to.y - entry.from.y) * progress - entry.arc * 4 * progress * (1 - progress),
+  };
+}
+
+function clearHordeEntry(enemy, entry, obstacles, platforms) {
+  const steps = Math.max(16, Math.ceil((Math.abs(entry.to.x - entry.from.x) + Math.abs(entry.to.y - entry.from.y) + entry.arc * 2) / 12));
+  let last = entry.from;
+  for (let i = 1; i <= steps; i++) {
+    const point = hordeEntryPosition(entry, i / steps);
+    const sweep = {
+      x: Math.min(last.x, point.x), y: Math.min(last.y, point.y),
+      w: enemy.w + Math.abs(point.x - last.x), h: enemy.h + Math.abs(point.y - last.y),
+    };
+    if (obstacles.some(platform => overlaps(sweep, platform))) return false;
+    if (enemy.type !== 'flyer' && point.y > last.y && platforms.some(platform =>
+      platform.oneway && !platform.motion && last.y + enemy.h <= platform.y && point.y + enemy.h > platform.y
+      && sweep.x + sweep.w > platform.x && sweep.x < platform.x + platform.w)) return false;
+    last = point;
+  }
+  return true;
+}
+
+function hordeEntry(game, enemy, preferredDirection, order, ground, obstacles) {
+  const to = { x: enemy.x, y: enemy.y };
+  const flying = enemy.type === 'flyer';
+  for (const direction of [preferredDirection, -preferredDirection]) {
+    const margin = 10 + order * 25;
+    const x = direction < 0 ? Math.ceil(game.camera + VIEW.width) + margin : Math.floor(game.camera) - enemy.w - margin;
+    const floors = game.platforms.filter(platform => platform.y === ground && !platform.motion && !platform.broken);
+    const track = { x: Math.min(x, to.x), y: ground, w: Math.abs(to.x - x) + enemy.w };
+    const run = !flying && floors.some(floor => track.x >= floor.x && track.x + track.w <= floor.x + floor.w);
+    // 地面有豁口时从侧边跳上落脚处，飞怪可以贴着边缘飞入。
+    const jumps = [[0, 32], [0, 42], [0, 58], [32, 20], [48, 35], [88, 34], [128, 0], [176, 0]];
+    const shapes = run || flying ? [[0, 0], ...jumps] : jumps;
+    for (const [height, arc] of shapes) {
+      const from = { x, y: to.y - height };
+      const duration = Math.max(.28, Math.abs(x - to.x) / 255);
+      const entry = { from, to, arc, duration, elapsed: 0 };
+      if (clearHordeEntry(enemy, entry, obstacles, game.platforms)) return entry;
+    }
+  }
+  // 两侧都被家具挡住时，改从画面上缘落下。
+  const from = { x: to.x, y: Math.min(to.y - 1, Math.floor(game.cameraY) - enemy.h - 12 - order * 23) };
+  const entry = { from, to, arc: 0, duration: Math.max(.28, (to.y - from.y) / 250), elapsed: 0 };
+  return clearHordeEntry(enemy, entry, obstacles, game.platforms) ? entry : null;
+}
+
 function startHordes(game) {
   if (game.boss && game.boss.state !== 'waiting') return;
   const player = game.player;
@@ -486,23 +536,56 @@ function startHordes(game) {
     if (game.activeHordes.has(id) || game.clearedHordes.has(id)) continue;
     if (center < left || center > right || feet > ground + 2 || feet < ground - 105) continue;
     const direction = center < (left + right) / 2 ? -1 : 1;
+    // 可塌书堆迟早会恢复，也作为入场路线的障碍处理。
+    const obstacles = game.platforms.filter(platform => !platform.oneway).map(platform => platform.rise
+      ? { ...platform, y: platform.y - platform.rise, h: platform.h + platform.rise } : platform);
     let groundSlot = 0, airSlot = 0;
-    for (const type of hordeFormation) {
+    const wave = [];
+    for (const [order, type] of hordeFormation.entries()) {
       const flying = type === 'flyer';
       const slot = flying ? airSlot++ : groundSlot++;
       const width = ENEMIES[type].width;
       const offset = 8 + slot * (flying ? 36 : 24);
       const x = direction < 0 ? right - width - offset : left + offset;
-      const enemy = makeEnemy({
+      const spawn = {
         type, x, y: ground - (flying ? 54 + slot * 12 : 0), horde: id,
         minX: left, maxX: right - width, phase: slot * 1.8,
-      }, game.platforms);
-      enemy.direction = direction;
+      };
+      let enemy = makeEnemy(spawn, game.platforms);
+      let entry = hordeEntry(game, enemy, direction, order, ground, obstacles);
+      // 预定落脚点被上方的家具遮住时，在同一条巡逻区域找邻近落脚点。
+      for (const offset of [-24, 24, -48, 48, -72, 72, -96, 96]) {
+        if (entry) break;
+        const nearbyX = clamp(x + offset, spawn.minX, spawn.maxX);
+        if (nearbyX === x) continue;
+        enemy = makeEnemy({ ...spawn, x: nearbyX }, game.platforms);
+        entry = hordeEntry(game, enemy, direction, order, ground, obstacles);
+      }
+      if (!entry) break;
+      enemy.entry = entry;
+      enemy.x = entry.from.x;
+      enemy.y = entry.from.y;
+      enemy.direction = Math.sign(entry.to.x - entry.from.x) || direction;
       enemy.cooldown += slot * .22;
-      game.enemies.push(enemy);
+      wave.push(enemy);
     }
+    if (wave.length !== hordeFormation.length) continue;
+    game.enemies.push(...wave);
     game.activeHordes.add(id);
     game.hordeStarts++;
+  }
+}
+
+function stepHordeEntry(enemy, dt) {
+  const entry = enemy.entry;
+  entry.elapsed = Math.min(entry.duration, entry.elapsed + dt);
+  const point = hordeEntryPosition(entry, entry.elapsed / entry.duration);
+  enemy.running = enemy.x !== point.x;
+  enemy.x = point.x;
+  enemy.y = point.y;
+  if (entry.elapsed === entry.duration) {
+    enemy.entry = null;
+    enemy.running = false;
   }
 }
 
@@ -533,6 +616,10 @@ function stepEnemies(game, dt) {
     const type = ENEMIES[enemy.type];
     enemy.flash = Math.max(0, enemy.flash - dt);
 
+    if (enemy.entry) {
+      stepHordeEntry(enemy, dt);
+      continue;
+    }
     if (enemy.horde !== undefined) {
       stepHordeEnemy(enemy, p, game.platforms, dt);
       if (enemy.type === 'patrol') continue;
@@ -1223,7 +1310,7 @@ export function stepGame(game, input, dt) {
   updateHelper(game, dt);
 
   for (const enemy of game.enemies) {
-    if (enemy.health && overlaps(p, enemy) && damagePlayer(game, enemy, ENEMIES[enemy.type].damage)) return;
+    if (enemy.health && !enemy.entry && overlaps(p, enemy) && damagePlayer(game, enemy, ENEMIES[enemy.type].damage)) return;
   }
   for (const hazard of game.hazards) {
     if (!hazard.destroyed && (hazard.kind !== 'cable' || cableActive(game.elapsed)) && overlaps(p, hazard) && damagePlayer(game, hazard, hazard.damage)) return;

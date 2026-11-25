@@ -159,7 +159,8 @@ export function createRenderer(canvas) {
     const puppy = Boolean(b.type);
     const intro = b.state === 'intro';
     const dashing = b.state === 'dash' || b.state === 'enter';
-    const gait = dashing || b.type === 'patrol' || b.running ? Math.sin(t * (dashing ? 24 : 14)) * 4 : 0;
+    const airborneEntry = b.entry && (b.type === 'flyer' || Math.abs(b.y - b.entry.to.y) > 1);
+    const gait = !airborneEntry && (dashing || b.type === 'patrol' || b.running) ? Math.sin(t * (dashing ? 24 : 14)) * 4 : 0;
     const bob = intro ? Math.sin(t * 6) * 1.5 : 0;
     ctx.save();
     ctx.translate(b.x + b.w / 2, b.y + bob);
