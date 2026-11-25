@@ -106,7 +106,7 @@ const shelf = (c, x, y, w) => c.platforms.push({ x, y, w, h: 10, kind: 'shelf', 
 // 斜坡：从左端 (x, y) 走到右端 (x + w, y - rise)，rise 为正表示往右上坡。
 const slope = (c, x, y, w, rise) => c.platforms.push({ x, y, w, h: 12, kind: 'slope', rise });
 // 键盘键帽：踩上去会被弹得更高，用来够到高处的分支。
-const springboard = (c, x, y, w, power = 1.45) => c.platforms.push({ x, y, w, h: 18, kind: 'keyboard', bounce: power });
+const springboard = (c, x, y, w, power = 1.45) => c.platforms.push({ x, y, w, h: GROUND - y, kind: 'keyboard', bounce: power });
 // 会塌的书堆：站上去一会儿就散架，过几秒复原。
 const crumbly = (c, x, y, w) => c.platforms.push({ x, y, w, h: 24, kind: 'books', crumble: { delay: 0.55, respawn: 2.8 } });
 
@@ -140,13 +140,13 @@ desk(stage1, 790, 710);
 desk(stage1, 1590, 1410);
 desk(stage1, 3000, 654);            // 关底竞技场
 // 开局：键盘立在左手边
-keyboard(stage1, 0, 258, 150, 24);
+keyboard(stage1, 0, 258, 150, 28);
 // 上层路线 1：文件堆阶梯 → 文具盒 → 搁板
 books(stage1, 200, 254, 70, 32);
-books(stage1, 272, 198, 70, 32);
-books(stage1, 344, 190, 70, 32);
-crate(stage1, 424, 178, 130, 30);   // 文具盒
-shelf(stage1, 560, 146, 120);
+books(stage1, 305, 198, 65, 32);
+books(stage1, 404, 190, 65, 32);
+crate(stage1, 503, 178, 58, 30);   // 文具盒
+shelf(stage1, 580, 146, 100);
 // 上层路线 2：显示器底座 + 纸箱
 monitorBase(stage1, 880, 206, 150);
 monitorBase(stage1, 1090, 206, 150);
@@ -204,12 +204,12 @@ desk(stage2, 1210, 540);
 desk(stage2, 1810, 990);
 desk(stage2, 2800, 754);            // 骡子竞技场
 // 起步：半开的抽屉 → 椅子扶手 → 文件架
-drawer(stage2, 300, 236, 130, 44);
+drawer(stage2, 300, 236, 130, 50);
 stand(stage2, 460, 208, 90);
 shelf(stage2, 590, 178, 110);
 // 打印机是这段最高的一级，踩上去能俯视整片设备区
 printerBlock(stage2, 0, 150, 240);
-crate(stage2, 760, 186, 90);
+crate(stage2, 760, 176, 90);
 crate(stage2, 870, 200, 90);
 crate(stage2, 990, 166, 90);
 // 文件架下方留出 56 像素净空，玩家可以沿桌面走过去。
@@ -217,11 +217,11 @@ books(stage2, 1220, 216, 200, 14);
 crate(stage2, 1450, 200, 90);
 shelf(stage2, 1600, 196, 150);
 // 开阔交战区：两张矮纸箱当掩体
-crate(stage2, 1850, 250, 70);
-crate(stage2, 2020, 250, 70);
+crate(stage2, 1850, 250, 70, 36);
+crate(stage2, 2020, 250, 70, 36);
 // 动态地形：可塌书堆 + 键帽弹簧
 crumbly(stage2, 700, 262, 70);
-springboard(stage2, 1950, 262, 60);
+springboard(stage2, 1950, 262, 40);
 decorate(stage2, 1080, 286, 'pencil');
 decorate(stage2, 1640, 286, 'cup');
 // 敌人
@@ -247,7 +247,7 @@ hazard(stage2, 1640, 90, GROUND - 14, 'spill');
 hazard(stage2, 1930, 50, GROUND - 14, 'crumb');
 // 补给
 weapon(stage2, 520, 136, 'spread');
-health(stage2, 780, 172);
+health(stage2, 780, 162);
 grenades(stage2, 1020, 152);
 health(stage2, 1300, 202);
 weapon(stage2, 1880, 236, 'heavy');
@@ -309,12 +309,13 @@ for (const y of [1400, 1100, 560]) {
   platform.motion = { distance: 24, speed: 32 };
 }
 // 升降抽屉：在 920 和 680 两层大平台之间来回，等它到位置再跳上去。
-tower.platforms.push({ x: 820, y: 800, w: 140, h: 40, kind: 'drawer', motion: { axis: 'y', distance: 110, speed: 55 } });
+tower.platforms.push({ x: 820, y: 800, w: 140, h: 20, kind: 'drawer', oneway: true,
+  motion: { axis: 'y', distance: 110, speed: 55 } });
 // 平台上的斜上坡 + 一小块高台，走上去就能拿补给
 slope(tower, 620, 680, 160, 60);
-tower.platforms.push({ x: 780, y: 620, w: 110, h: 14, kind: 'books' });
+tower.platforms.push({ x: 780, y: 620, w: 110, h: 14, kind: 'books', oneway: true });
 health(tower, 820, 620 - 14);
-crumbly(tower, 440, 898, 70);
+crumbly(tower, 440, 901, 70);
 // 顶层：首领战场（从左侧的抽屉跳上来）
 landing(350, 320, 630);
 
@@ -610,9 +611,9 @@ const shaftRows = [
   [390, 1340, 310, 'books'], [150, 1280, 300, 'crate'],
   [370, 1220, 310, 'shelf'], [170, 1160, 300, 'drawer'],
   [350, 1100, 310, 'books'], [150, 1040, 300, 'shelf'],
-  [350, 980, 310, 'crate'], [200, 920, 440, 'desk'],
+  [350, 980, 310, 'crate'], [200, 920, 492, 'desk'],
   [430, 860, 300, 'shelf'], [250, 800, 300, 'drawer'],
-  [420, 740, 300, 'books'], [220, 680, 440, 'desk'],
+  [420, 740, 300, 'books'], [220, 680, 484, 'desk'],
   [400, 620, 300, 'crate'], [220, 560, 300, 'shelf'],
   [400, 500, 300, 'drawer'], [220, 440, 300, 'books'],
   [80, 380, 300, 'shelf'], [350, 320, 630, 'desk'],

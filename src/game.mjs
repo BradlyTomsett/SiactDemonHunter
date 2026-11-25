@@ -176,6 +176,7 @@ function movePlatforms(game) {
     if (axis === 'y') {
       const y = platform.baseY + wave * distance;
       const dy = y - platform.y;
+      platform.previousY = platform.y;
       platform.y = y;
       if (standing) player.y += dy;
       for (const item of [...game.food, ...game.supplies]) {
@@ -268,7 +269,9 @@ function movePlayer(game, input, dt) {
     if (solid.broken || solid.kind === 'slope') continue;
     if (!overlaps(p, solid)) continue;
     // 单向平台只在下落途中接住玩家，跳上去时从下方穿过。
-    const landing = p.vy >= 0 && oldY + p.h <= solid.y + 0.6;
+    // 升起的平台也能接住上一帧还在其上方的下落角色。
+    const previousSurface = Math.max(solid.y, solid.previousY ?? solid.y);
+    const landing = p.vy >= 0 && oldY + p.h <= previousSurface + 0.6;
     if (solid.oneway && !landing) continue;
     if (landing) {
       p.y = solid.y - p.h;
