@@ -690,7 +690,30 @@ export function createRenderer(canvas) {
       ctx.font = 'bold 18px sans-serif';
       ctx.fillText(glyph, ax, ay + 6);
     }
-    if(game.bosses.every(boss=>boss.state==='defeated')){const e=game.level.exit;round(e.x-4,e.y-4,e.w+8,e.h+4,9,'#bbdbc4');round(e.x,e.y,e.w,e.h,7,'#416e68');ctx.fillStyle='#fff7d4';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('出口',e.x+e.w/2,e.y-8);}
+    const exit = game.level.exit;
+    const exitOpen = game.bosses.every(boss => boss.state === 'defeated');
+    if (exit.kind === 'terminal') {
+      const { x, y, w, h } = exit;
+      round(x - 4, y, w + 8, 31, 4, '#314851');
+      round(x, y + 4, w, 23, 2, exitOpen ? '#245c56' : '#263b43');
+      round(x + 13, y + 29, 8, 13, 2, '#587378');
+      round(x - 5, y + h - 9, w + 10, 8, 2, '#9fb2ad');
+      if (exitOpen) {
+        line(x + 5, y + 12, x + 13, y + 12, '#a0ffd0', 2);
+        line(x + 5, y + 18, x + 24, y + 18, '#a0ffd0', 2);
+        ctx.fillStyle = '#fff7d4';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('求救电脑', x + w / 2, y - 8);
+      }
+    } else if (exitOpen) {
+      round(exit.x - 4, exit.y - 4, exit.w + 8, exit.h + 4, 9, '#bbdbc4');
+      round(exit.x, exit.y, exit.w, exit.h, 7, '#416e68');
+      ctx.fillStyle = '#fff7d4';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('出口', exit.x + exit.w / 2, exit.y - 8);
+    }
     for (const s of game.supplies) {
       if (s.taken || !office.visible(s, game.camera, cameraY)) continue;
       const x = s.x + s.w / 2;

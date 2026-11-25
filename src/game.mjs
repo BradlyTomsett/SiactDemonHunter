@@ -1303,7 +1303,9 @@ export function restoreGame(game, snapshot) {
     grenades: snapshot.carry.grenades === "inf" ? Infinity : snapshot.carry.grenades,
   } : null;
   const savedCheckpoint = Number.isInteger(snapshot.checkpoint) ? snapshot.checkpoint : -1;
-  const checkpoint = game.level.legacyCheckpoints?.[savedCheckpoint] ?? savedCheckpoint;
+  const usesCurrentLayout = game.level.checkpointLayout && snapshot.checkpointLayout === game.level.checkpointLayout;
+  const legacyCheckpoint = usesCurrentLayout ? undefined : game.level.legacyCheckpoints?.[savedCheckpoint];
+  const checkpoint = legacyCheckpoint ?? savedCheckpoint;
   resetLevel(game, game.level.checkpoints[checkpoint] ? checkpoint : -1, carry);
   game.player.invincible = Math.max(game.player.invincible, 1.2);
   return game;

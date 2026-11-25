@@ -22,6 +22,7 @@ export function makeSnapshot(game, extra = {}) {
     clearedHordes: [...game.clearedHordes],
     clearedBosses: game.clearedBosses,
     checkpoint: game.checkpoint,
+    checkpointLayout: game.level.checkpointLayout,
     nextLevel: extra.nextLevel ?? null,
     carry: {
       health: p.health,

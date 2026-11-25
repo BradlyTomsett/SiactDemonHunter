@@ -382,7 +382,7 @@ function finish() {
     panel(
       "cleared",
       "全部通关",
-      "",
+      "求救信号已发出。",
       "再玩一局",
       () => {
         completedTime = 0;

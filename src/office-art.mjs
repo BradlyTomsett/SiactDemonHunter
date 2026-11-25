@@ -37,21 +37,23 @@ export function createOfficeArt(ctx, { round, oval, line }) {
   }
 
   // 纵向关卡（工位攀登）用的墙面背景：随镜头上下滚动，不出现固定的天花板。
-  function tallWall(camera, cameraY) {
-    fill(0, 0, W, H, gradient(0, H, '#e7f7f0', '#c3e6da', '#a2d3c8'));
+  function tallWall(camera, cameraY, shaft = false) {
+    fill(0, 0, W, H, shaft ? gradient(0, H, '#d7e3e8', '#b1c6cf', '#8faab5') : gradient(0, H, '#e7f7f0', '#c3e6da', '#a2d3c8'));
     const panelH = 200;
     const offsetX = -(camera * 0.16 % 240);
     const offsetY = -(cameraY * 0.45 % panelH);
     for (let y = offsetY - panelH; y < H + panelH; y += panelH) {
       for (let x = offsetX - 240; x < W + 240; x += 240) {
-        fill(x + 16, y + 12, 208, 140, '#d3ece2');
-        fill(x + 20, y + 16, 200, 132, '#bfe2d6');
+        fill(x + 16, y + 12, 208, 140, shaft ? '#a2b8c0' : '#d3ece2');
+        fill(x + 20, y + 16, 200, 132, shaft ? '#c5d4d9' : '#bfe2d6');
         for (let row = y + 26; row < y + 140; row += 12) fill(x + 22, row, 196, 2, '#d9f0e6');
         fill(x, y + 152, 240, 20, '#93c0b3');
         fill(x, y + 152, 240, 3, '#e2f6ee');
-        oval(x + 30, y + 146, 13, 6, '#6ba98c');
-        oval(x + 22, y + 136, 7, 5, '#7fbf9c');
-        oval(x + 200, y + 144, 10, 5, '#6ba98c');
+        if (!shaft) {
+          oval(x + 30, y + 146, 13, 6, '#6ba98c');
+          oval(x + 22, y + 136, 7, 5, '#7fbf9c');
+          oval(x + 200, y + 144, 10, 5, '#6ba98c');
+        }
       }
     }
     ctx.save();
@@ -64,7 +66,7 @@ export function createOfficeArt(ctx, { round, oval, line }) {
 
   function background(camera, cameraY = 0, level) {
     if ((level?.height ?? H) > H) {
-      tallWall(camera, cameraY);
+      tallWall(camera, cameraY, level.id === 'shaft');
       return;
     }
     fill(0, 0, W, H, gradient(0, H, '#edfef8', '#c0e8dd', '#88cebd', '#54a9ab'));
