@@ -877,7 +877,7 @@ function spawnLogicWave(game, boss, cfg) {
   });
 }
 
-// 召唤出来的 6 狗：和游戏里第一只 6 狗同样的血量、招式和外观。
+// 召唤出来的 6 狗使用单独配置的血量，沿用第一关的招式和外观。
 function createSummon(game, mule, cfg) {
   const dogCfg = {
     ...cfg,
@@ -906,6 +906,7 @@ function createSummon(game, mule, cfg) {
 
 function stepMule(game, boss, cfg, dt) {
   const player = game.player;
+  const movement = cfg.movement;
   boss.flash = Math.max(0, boss.flash - dt);
   boss.timer -= dt;
 
@@ -919,7 +920,7 @@ function stepMule(game, boss, cfg, dt) {
   }
 
   if (boss.state === 'returning') {
-    boss.x = approach(boss.x, boss.entryTarget, 180 * dt);
+    boss.x = approach(boss.x, boss.entryTarget, movement.returnSpeed * dt);
     if (boss.x === boss.entryTarget) {
       boss.state = 'intro';
       boss.timer = 1.4;
@@ -977,7 +978,7 @@ function stepMule(game, boss, cfg, dt) {
   } else if (boss.state === 'muleWindup') {
     if (boss.timer <= 0) startMuleAttack(game, boss, cfg);
   } else if (boss.state === 'muleAttack') {
-    const speed = boss.attack === 'dash' ? 260 : boss.attack === 'leap' ? 145 : 0;
+    const speed = boss.attack === 'dash' ? movement.dashSpeed : boss.attack === 'leap' ? movement.leapSpeed : 0;
     boss.x = clamp(boss.x + boss.direction * speed * dt, cfg.arenaLeft, cfg.arenaRight - boss.w);
     if (boss.attack === 'leap') {
       const progress = 1 - Math.max(0, boss.timer) / boss.attackDuration;
@@ -986,19 +987,22 @@ function stepMule(game, boss, cfg, dt) {
     if (boss.timer <= 0) {
       boss.y = cfg.ground - boss.h;
       boss.state = 'muleRecover';
-      boss.timer = .62;
+      boss.timer = movement.recovery;
     }
   } else if (boss.state === 'muleRecover' && boss.timer <= 0) {
     boss.state = 'muleWalk';
-    boss.timer = .88;
-    // 移到玩家附近，但留出后踢及其他招式的反应距离。
-    const side = player.x < boss.x ? -1 : 1;
-    boss.walkTarget = clamp(player.x - boss.w / 2 - side * 56, cfg.arenaLeft + 10, cfg.arenaRight - boss.w - 10);
+    boss.timer = movement.walkTime;
   } else if (boss.state === 'muleWalk') {
     if (boss.timer <= 0) warnMuleAttack(boss, player);
     else {
-      if (boss.x !== boss.walkTarget) boss.direction = Math.sign(boss.walkTarget - boss.x);
-      boss.x = approach(boss.x, boss.walkTarget, cfg.walkSpeed * dt);
+      // 玩家绕到另一边时立即更新走位目标，蓄力后仍按预告方向攻击。
+      const playerOnLeft = player.x + player.w / 2 < boss.x + boss.w / 2;
+      const nextAttack = muleAttacks[boss.attackIndex % muleAttacks.length];
+      const gap = nextAttack === 'kick' ? 24 : 48;
+      const target = playerOnLeft ? player.x + player.w + gap : player.x - boss.w - gap;
+      const walkTarget = clamp(target, cfg.arenaLeft + 10, cfg.arenaRight - boss.w - 10);
+      if (boss.x !== walkTarget) boss.direction = Math.sign(walkTarget - boss.x);
+      boss.x = approach(boss.x, walkTarget, movement.walkSpeed * dt);
     }
   }
 

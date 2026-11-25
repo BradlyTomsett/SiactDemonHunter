@@ -375,7 +375,7 @@ tower.boss = {
   label: '6狗',
   coat: null,
   pattern: 1,
-  health: 100,
+  health: 130,
   ground: 320,
   arenaLeft: 440,
   arenaRight: 960,
@@ -447,9 +447,9 @@ const bossCoats = [
 // 每关只在最后一段放 BOSS：第 1 关 stage1（6 狗）、第 2 关 stage2（骡子）、第 4 关 ch6。
 // 第 3 关「工位攀登」的 BOSS 写在 tower 里，不走这张表。
 const BOSS_CHAPTERS = new Map([
-  [stage1, { health: 60, pattern: 0, coat: bossCoats[0], kind: 'dog', label: '6狗' }],
-  [stage2, { health: 80, pattern: 0, coat: null, kind: 'mule', label: '骡子' }],
-  [ch6, { health: 120, pattern: 2, coat: bossCoats[8], kind: 'dog', label: '6狗' }],
+  [stage1, { health: 78, pattern: 0, coat: bossCoats[0], kind: 'dog', label: '6狗' }],
+  [stage2, { health: 104, pattern: 0, coat: null, kind: 'mule', label: '骡子' }],
+  [ch6, { health: 156, pattern: 2, coat: bossCoats[8], kind: 'dog', label: '6狗' }],
 ]);
 
 // 原来有 BOSS 但被取消的场地：长度保留，改成一片巡逻队把守的区域。
@@ -491,7 +491,7 @@ for (const level of CHAPTERS) {
     Object.assign(level.boss, {
       warning: 0.9,
       framedArena: true,
-      walkSpeed: 82,
+      movement: { walkSpeed: 132, dashSpeed: 315, leapSpeed: 180, returnSpeed: 220, walkTime: .95, recovery: .52 },
       logicSpeed: DROPPINGS.rollSpeed,
       summonAt: 0.5,
       summonTime: 2.8,
