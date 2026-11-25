@@ -1,8 +1,8 @@
-export const VIEW = { width: 640, height: 360 };
+﻿export const VIEW = { width: 640, height: 360 };
 export const GROUND = 286;
 
 export const PLAYER = {
-  width: 17, height: 27, speed: 188, acceleration: 1650,
+  width: 19, height: 40, speed: 188, acceleration: 1650,
   gravity: 1080, jumpSpeed: 482, maxFallSpeed: 560,
   coyoteTime: 0.10, jumpBuffer: 0.13,
   maxHealth: 5, lives: 3, invincibleTime: 1.15, respawnInvincible: 1.8,
@@ -126,167 +126,138 @@ const cp = (c, x, y = GROUND) => c.checkpoints.push({ x, y });
 const hint = (c, x, text) => c.hints.push({ x, text });
 const decorate = (c, x, y, kind) => c.decoration.push({ x, y, kind });
 
-// ── 1/9 键盘区：教学，平坦 + 一个断口 + 首个陷阱 ────────────────────────────
-const ch1 = createChapter('ch1', '第一关 · 1/9 键盘区', 2300, '从键盘旁出发');
-ch1.spawn = { x: 88, y: 262 };
-desk(ch1, 0, 442);
-keyboard(ch1, 48, 262, 166, 24);
-books(ch1, 240, 267, 55, 19);
-books(ch1, 295, 251, 68, 35);
-desk(ch1, 516, 548);
-stand(ch1, 591, 267, 110);
-books(ch1, 900, 230, 70, 20);
-plank(ch1, 980, 196, 90);
-desk(ch1, 1126, 1174);
-plank(ch1, 1300, 218, 170);
-shelf(ch1, 1470, 158, 160);
-// 会塌的书堆和键帽弹簧：一个教「别停」，一个把人弹到高处
-crumbly(ch1, 1180, 262, 70);
-springboard(ch1, 1550, 268, 64);
-decorate(ch1, 558, 267, 'monitor');
-decorate(ch1, 1175, 286, 'cup');
-patrol(ch1, 760, 700, 850);
-patrol(ch1, 1600, 1520, 1720);
-hazard(ch1, 1240, 60, GROUND - 14, 'crumb');
-health(ch1, 307, 235);
-weapon(ch1, 715, 251, 'spread');
-grenades(ch1, 1010, 180);
-health(ch1, 1350, 270);
-grenades(ch1, 1535, 142);
-weapon(ch1, 1900, 270, 'rapid');
-cp(ch1, 120, 262); cp(ch1, 560); cp(ch1, 1150); cp(ch1, 1500); cp(ch1, 1900); cp(ch1, 2150);
-hint(ch1, 0, '摇杆移动与瞄准，推得浅会站着不动');
-hint(ch1, 240, '跳上书本，再越过桌缝');
-hint(ch1, 700, '前方有巡逻怪，按住开火可以连发');
-hint(ch1, 1126, '跳上悬空文件，往高处寻找补给');
-hint(ch1, 1200, '面包屑可以开枪打掉');
-hint(ch1, 1520, '小心地面障碍，跳过去或射击清除');
+// ── 第 1 关 · 键盘与文件堆：桌面主路 + 上层文件堆 / 显示器底座 ──────────────
+// 参考《魂斗罗》第一关的节奏：开阔的横向推进、两处桌缝、上下两条可以互相换的路。
+const monitorBase = (c, x, y, w) => c.platforms.push({ x, y, w, h: 24, kind: 'monitorTop' });
+const printerBlock = (c, x, y, w) => c.platforms.push({ x, y, w, h: 22, kind: 'printerTop' });
 
-// ── 2/9 书堆迷宫：纵向爬升 + 射击怪 ────────────────────────────────────────
-const ch2 = createChapter('ch2', '第一关 · 2/9 书堆迷宫', 3300, '堆叠的文件与书本');
-desk(ch2, 0, 910);
-books(ch2, 320, 250, 56, 36);
-books(ch2, 376, 214, 56, 36);
-books(ch2, 432, 178, 48, 36);
-plank(ch2, 560, 150, 90);
-// 斜上坡：从桌面直接走到书堆顶上，不用跳
-slope(ch2, 250, 286, 70, 36);
-desk(ch2, 1010, 430);
-books(ch2, 1150, 246, 70, 40);
-shelf(ch2, 1240, 210, 100);
-desk(ch2, 1540, 470);
-books(ch2, 1620, 240, 60, 46);
-books(ch2, 1680, 200, 60, 40);
-shelf(ch2, 1760, 170, 120);
-desk(ch2, 2110, 1190);
-decorate(ch2, 700, 286, 'pen');
-decorate(ch2, 1300, 286, 'eraser');
-decorate(ch2, 2300, 286, 'staple');
-patrol(ch2, 800, 720, 880);
-gunner(ch2, 1390);
-patrol(ch2, 1880, 1820, 1970);
-gunner(ch2, 2250);
-patrol(ch2, 2400, 2340, 2520);
-hazard(ch2, 2270, 50, GROUND - 14, 'crumb');
-weapon(ch2, 590, 134, 'pierce');
-weapon(ch2, 1800, 154, 'spread');
-health(ch2, 700, 270);
-grenades(ch2, 1300, 270);
-health(ch2, 1900, 270);
-health(ch2, 2460, 270);
-cp(ch2, 100); cp(ch2, 520); cp(ch2, 1050); cp(ch2, 1580); cp(ch2, 2160); cp(ch2, 2570);
-grenades(ch2, 2575, 270);
-hint(ch2, 0, '书堆可以一路踩上去，高处的补给更好');
-hint(ch2, 300, '淡色横板可以从下方穿过去');
-hint(ch2, 1000, '前方有射击怪，别站着不动');
-hint(ch2, 1500, '爬得越高，弹药越强');
-hint(ch2, 2100, '前方是 6 狗，整理装备准备战斗');
-hint(ch2, 2600, '击败 6 狗才能离开，小心从天上掉落的东西');
+const stage1 = createChapter('ch1', '第 1 关 · 键盘与文件堆', 3700, '从键盘旁沿桌面推进');
+stage1.arenaStart = 3000;
+stage1.spawn = { x: 170, y: GROUND };
+// 下层主路：三大段桌面，中间两处桌缝要跳过去。
+desk(stage1, 0, 700);
+desk(stage1, 790, 710);
+desk(stage1, 1590, 1410);
+desk(stage1, 3000, 654);            // 关底竞技场
+// 开局：键盘立在左手边
+keyboard(stage1, 0, 258, 150, 24);
+// 上层路线 1：文件堆阶梯 → 文具盒 → 搁板
+books(stage1, 200, 254, 70, 32);
+books(stage1, 272, 222, 70, 32);
+books(stage1, 344, 190, 70, 32);
+crate(stage1, 424, 178, 130, 30);   // 文具盒
+shelf(stage1, 560, 146, 120);
+// 上层路线 2：显示器底座 + 纸箱
+monitorBase(stage1, 880, 250, 150);
+monitorBase(stage1, 1090, 250, 150);
+crate(stage1, 1300, 222, 110, 30);
+plank(stage1, 1450, 196, 110);
+// 上层路线 3：再过一组显示器底座，接回竞技场
+monitorBase(stage1, 1720, 250, 150);
+crate(stage1, 1950, 222, 110, 30);
+shelf(stage1, 2110, 194, 130);
+plank(stage1, 2270, 218, 110);
+// 可塌书堆和键帽弹簧（保留上一版的动态地形）
+crumbly(stage1, 560, 262, 70);
+springboard(stage1, 2210, 262, 60);
+decorate(stage1, 500, 286, 'cup');
+decorate(stage1, 1230, 286, 'staple');
+decorate(stage1, 2010, 286, 'eraser');
+// 敌人：地面巡逻 + 底座上的射手 + 空中的飞怪
+patrol(stage1, 430, 330, 640);
+stage1.enemies.push({ type: 'gunner', x: 940, y: 250 });
+patrol(stage1, 1150, 950, 1300);
+flyer(stage1, 1250, 210, 950, 1450);
+stage1.enemies.push({ type: 'gunner', x: 1975, y: 222 });
+patrol(stage1, 2180, 2080, 2330);
+flyer(stage1, 2150, 210, 1900, 2350);
+stage1.enemies.push({ type: 'gunner', x: 1150, y: 250 });
+patrol(stage1, 2050, 1900, 2250);
+flyer(stage1, 2800, 210, 2600, 3000);
+hazard(stage1, 1140, 60, GROUND - 14, 'crumb');
+hazard(stage1, 2340, 60, GROUND - 14, 'cable');
+// 补给：主路上给基础物资，支线高台上给武器
+health(stage1, 660, 270);
+grenades(stage1, 380, 270);
+weapon(stage1, 600, 132, 'spread');
+health(stage1, 960, 236);
+grenades(stage1, 1330, 208);
+weapon(stage1, 1470, 182, 'rapid');
+health(stage1, 1760, 236);
+weapon(stage1, 2140, 180, 'pierce');
+grenades(stage1, 2290, 270);
+cp(stage1, 170); cp(stage1, 830); cp(stage1, 1690); cp(stage1, 2100);
+hint(stage1, 0, '桌面是主路，文件堆和显示器底座是另一条路');
+hint(stage1, 620, '桌缝，跳过去');
+hint(stage1, 900, '踩上显示器底座能绕开地面的敌人');
+hint(stage1, 1560, '第二道桌缝，助跑再跳');
+hint(stage1, 2900, '6 狗就在前面');
 
-// ── 3/9 线缆区：放电陷阱 + 飞怪 + 断崖 ────────────────────────────────────
-const ch3 = createChapter('ch3', '第一关 · 3/9 显示器线缆区', 2700, '缠绕的线与漏电');
-desk(ch3, 0, 290);
-desk(ch3, 390, 390);
-desk(ch3, 880, 430);
-desk(ch3, 1410, 370);
-desk(ch3, 1870, 390);
-desk(ch3, 2360, 340);
-plank(ch3, 600, 230, 80);
-books(ch3, 1480, 244, 70, 42);
-shelf(ch3, 1570, 206, 110);
-plank(ch3, 1830, 220, 70);
-decorate(ch3, 700, 286, 'coil');
-decorate(ch3, 2250, 286, 'pencil');
-gunner(ch3, 1260);
-gunner(ch3, 2180);
-patrol(ch3, 1700, 1640, 1760);
-patrol(ch3, 2450, 2400, 2600);
-flyer(ch3, 500, 200, 430, 720);
-flyer(ch3, 800, 190, 770, 900);
-flyer(ch3, 2050, 180, 1980, 2240);
-charger(ch3, 1250, 900, 1300);
-shielder(ch3, 2200);
-hazard(ch3, 470, 100, GROUND - 14, 'cable');
-hazard(ch3, 1000, 110, GROUND - 14, 'cable');
-hazard(ch3, 1160, 50, GROUND - 14, 'cable');
-hazard(ch3, 1950, 100, GROUND - 14, 'cable');
-weapon(ch3, 1600, 190, 'spread');
-weapon(ch3, 900, 270, 'rapid');
-grenades(ch3, 2600, 270);
-health(ch3, 2400, 270);
-cp(ch3, 80); cp(ch3, 920); cp(ch3, 1900); cp(ch3, 2400);
-hint(ch3, 0, '电缆周期通电，暗淡时可安全通过');
-hint(ch3, 260, '空中飘的飞怪会俯冲，提前射它');
-hint(ch3, 800, '断崖之间有小跳板，别掉下去');
-hint(ch3, 1400, '检查点每走一段就有一个');
-hint(ch3, 1900, '离显示器越近，线越乱');
-hint(ch3, 2300, '前方就是桌缝');
-
-// ── 4/9 咖啡区：湿滑地面 + 混合敌人 ──────────────────────────────────────
-const ch4 = createChapter('ch4', '第一关 · 4/9 咖啡渍区', 2800, '泼洒的咖啡与湿滑的桌面');
-desk(ch4, 0, 350);
-desk(ch4, 450, 710);
-desk(ch4, 1260, 430);
-desk(ch4, 1790, 390);
-desk(ch4, 2280, 520);
-plank(ch4, 470, 218, 165);
-shelf(ch4, 650, 158, 170);
-books(ch4, 880, 240, 60, 46);
-books(ch4, 940, 200, 60, 40);
-shelf(ch4, 950, 176, 100);
-books(ch4, 1440, 250, 56, 36);
-plank(ch4, 1500, 214, 90);
-decorate(ch4, 620, 286, 'cup');
-decorate(ch4, 1700, 286, 'crumbcoil');
-decorate(ch4, 2500, 286, 'pen');
-patrol(ch4, 700, 620, 900);
-gunner(ch4, 1100);
-gunner(ch4, 1560);
-patrol(ch4, 2000, 1950, 2140);
-gunner(ch4, 2400);
-patrol(ch4, 2600, 2500, 2740);
-flyer(ch4, 2100, 170, 2000, 2160);
-shielder(ch4, 1100);
-charger(ch4, 2100, 1800, 2170);
-hazard(ch4, 140, 90, GROUND - 14, 'spill');
-hazard(ch4, 560, 95, GROUND - 14, 'spill');
-hazard(ch4, 760, 95, GROUND - 14, 'spill');
-hazard(ch4, 1350, 110, GROUND - 14, 'spill');
-hazard(ch4, 1890, 90, GROUND - 14, 'spill');
-hazard(ch4, 2040, 50, GROUND - 14, 'crumb');
-weapon(ch4, 1000, 160, 'rapid');
-health(ch4, 1300, 270);
-grenades(ch4, 725, 142);
-grenades(ch4, 1650, 270);
-health(ch4, 2350, 270);
-weapon(ch4, 2750, 270, 'heavy');
-cp(ch4, 100); cp(ch4, 480); cp(ch4, 1300); cp(ch4, 1800); cp(ch4, 2320); cp(ch4, 2600);
-hint(ch4, 0, '咖啡渍会打滑，转向和刹车变慢，跳过可免受伤害');
-hint(ch4, 340, '滑行时很难刹车，提前起跳');
-hint(ch4, 800, '注意高台上的射击怪');
-hint(ch4, 1250, '两处咖啡渍之间是安全区');
-hint(ch4, 1800, '飞怪会沿着咖啡的味道俯冲');
-hint(ch4, 2300, '最后一段了，检查点很密');
+// ── 第 2 关 · 抽屉与设备区：从半开抽屉爬上办公设备，再进开阔地 ────────────
+// 参考《魂斗罗》第二关第一段：起步低、沿设备一路上爬，最后在开阔区打首领。
+const stage2 = createChapter('ch3', '第 2 关 · 抽屉与设备区', 3600, '抽屉、扶手、文件架到打印机');
+stage2.arenaStart = 2800;
+stage2.spawn = { x: 360, y: 236 };
+// 下层：三段桌面，两处短缺口
+desk(stage2, 0, 1150);
+desk(stage2, 1210, 540);
+desk(stage2, 1810, 990);
+desk(stage2, 2800, 754);            // 骡子竞技场
+// 起步：半开的抽屉 → 椅子扶手 → 文件架
+drawer(stage2, 300, 236, 130, 44);
+stand(stage2, 460, 208, 90);
+shelf(stage2, 590, 178, 110);
+// 打印机是这段最高的一级，踩上去能俯视整片设备区
+printerBlock(stage2, 0, 150, 240);
+crate(stage2, 760, 186, 90);
+crate(stage2, 870, 226, 90);
+crate(stage2, 990, 166, 90);
+// 低矮通道：文件架压得很低，只能从下面走过去，跳起来会撞头
+books(stage2, 1220, 226, 200, 14);
+crate(stage2, 1450, 236, 90);
+shelf(stage2, 1600, 196, 150);
+// 开阔交战区：两张矮纸箱当掩体
+crate(stage2, 1850, 250, 70);
+crate(stage2, 2020, 250, 70);
+// 动态地形：可塌书堆 + 键帽弹簧
+crumbly(stage2, 700, 262, 70);
+springboard(stage2, 1950, 262, 60);
+decorate(stage2, 1080, 286, 'pencil');
+decorate(stage2, 1640, 286, 'cup');
+// 敌人
+patrol(stage2, 420, 330, 560);
+shielder(stage2, 900);
+charger(stage2, 1350, 1230, 1600);
+gunner(stage2, 1650);
+flyer(stage2, 1500, 210, 1300, 1750);
+patrol(stage2, 1950, 1830, 2100);
+shielder(stage2, 2120);
+// 设备区各段都放守卫，密度和旧版相当
+patrol(stage2, 300, 200, 450);
+patrol(stage2, 820, 700, 1000);
+stage2.enemies.push({ type: 'gunner', x: 600, y: 150 });
+flyer(stage2, 1200, 210, 1000, 1450);
+shielder(stage2, 1600);
+gunner(stage2, 1450);
+charger(stage2, 2000, 1900, 2150);
+patrol(stage2, 2300, 2200, 2450);
+gunner(stage2, 2380);
+hazard(stage2, 1230, 70, GROUND - 14, 'cable');
+hazard(stage2, 1640, 90, GROUND - 14, 'spill');
+hazard(stage2, 1930, 50, GROUND - 14, 'crumb');
+// 补给
+weapon(stage2, 520, 136, 'spread');
+health(stage2, 780, 172);
+grenades(stage2, 1020, 152);
+health(stage2, 1300, 212);
+weapon(stage2, 1880, 236, 'heavy');
+grenades(stage2, 2040, 236);
+cp(stage2, 360, 236); cp(stage2, 620); cp(stage2, 1300); cp(stage2, 2180);
+hint(stage2, 0, '从半开的抽屉出发');
+hint(stage2, 320, '扶手、文件架、打印机都能踩');
+hint(stage2, 1120, '文件架压得很低，只能从下面走过去');
+hint(stage2, 1810, '开阔地带，先清掉守卫');
+hint(stage2, 2750, '骡子在前面等着');
 
 // ── 第 3 关 · 工位攀登：从办公室地面一路爬到桌面顶层 ────────────────────────
 // 世界坐标向下为正，所以「往上爬」就是 y 越来越小。整关高度 1600，镜头要纵向跟随。
@@ -458,7 +429,7 @@ grenades(printer, 315, 142);
 cp(printer, 120); cp(printer, 740); cp(printer, 1350); cp(printer, 1740);
 hint(printer, 0, '沿纸张向上可获取补给，小心高处飞怪');
 
-const CHAPTERS = [ch1, ch2, ch3, ch4, monitor, printer, ch6];
+const CHAPTERS = [stage1, stage2, monitor, printer, ch6];
 
 const bossCoats = [
   { name: '金黄', light: '#efaf43', dark: '#955028', mark: '#ffd88d', pattern: 'solid' },
@@ -472,11 +443,11 @@ const bossCoats = [
   { name: '奶油白', light: '#fff8de', dark: '#c3a782', mark: '#f9dfaf', pattern: 'mask' },
 ];
 
-// 每关只在最后一段放 BOSS：第 1 关 ch2（6 狗）、第 2 关 ch4（骡子）、第 4 关 ch6。
+// 每关只在最后一段放 BOSS：第 1 关 stage1（6 狗）、第 2 关 stage2（骡子）、第 4 关 ch6。
 // 第 3 关「工位攀登」的 BOSS 写在 tower 里，不走这张表。
 const BOSS_CHAPTERS = new Map([
-  [ch2, { health: 60, pattern: 0, coat: bossCoats[0], kind: 'dog', label: '6狗' }],
-  [ch4, { health: 80, pattern: 0, coat: null, kind: 'mule', label: '骡子' }],
+  [stage1, { health: 60, pattern: 0, coat: bossCoats[0], kind: 'dog', label: '6狗' }],
+  [stage2, { health: 80, pattern: 0, coat: null, kind: 'mule', label: '骡子' }],
   [ch6, { health: 120, pattern: 2, coat: bossCoats[8], kind: 'dog', label: '6狗' }],
 ]);
 
@@ -490,15 +461,16 @@ function fillArena(level, arenaLeft, arenaRight) {
 }
 
 for (const level of CHAPTERS) {
-  const hasRoomAtEnd = level === ch2 || level === ch6;
-  const arenaLeft = level === ch2 ? 2620 : level === ch6 ? 1180 : level.width;
+  const spec = BOSS_CHAPTERS.get(level);
+  const hasRoomAtEnd = !!spec;
+  // 有 BOSS 的段用 arenaStart 指定竞技场起点，否则整段都算（后面再接一段巡逻区）。
+  const arenaLeft = hasRoomAtEnd ? (level.arenaStart ?? level.width - 640) : level.width;
   if (!hasRoomAtEnd) {
     const lastSurface = level.platforms.find(p => p.y === GROUND && p.x + p.w === level.width);
     lastSurface.w += 635;
     level.width += 635;
   }
   const arenaRight = level.width - 46;
-  const spec = BOSS_CHAPTERS.get(level);
   if (!spec) {
     fillArena(level, arenaLeft, arenaRight);
     continue;
@@ -506,7 +478,7 @@ for (const level of CHAPTERS) {
   level.boss = {
     ...BOSS, arenaLeft, arenaRight,
     trigger: arenaLeft + 20,
-    spawnX: arenaLeft + (level === ch2 ? 370 : 310),
+    spawnX: arenaLeft + (spec.kind === 'mule' ? 310 : 370),
     health: spec.health,
     coat: spec.coat,
     pattern: spec.pattern,
@@ -628,21 +600,21 @@ function finalizeTower(chapter) {
   return chapter;
 }
 
-// 9 段合并为 4 关：1+2、3+4、工位攀登、7+8+9。每关只有关尾一只 BOSS。
+// 每关一段（第 4 关三段合一），每关只在关尾一只 BOSS。
 export const LEVELS = [
-  mergeChapters('ch1', '第 1 关 · 键盘与书堆', '键盘区和书堆迷宫', [ch1, ch2]),
-  mergeChapters('ch2', '第 2 关 · 线缆与咖啡渍', '显示器线缆区和咖啡渍区', [ch3, ch4]),
+  mergeChapters('ch1', '第 1 关 · 键盘与文件堆', '桌面主路、文件堆阶梯和显示器底座', [stage1]),
+  mergeChapters('ch2', '第 2 关 · 抽屉与设备区', '抽屉、扶手、文件架和打印机', [stage2]),
   finalizeTower(tower),
   mergeChapters('ch4', '第 4 关 · 屏幕到桌缝', '显示器顶部、打印机和桌缝终局', [monitor, printer, ch6]),
 ];
 
-// 第 2 关的断电段：走进 1600~2700 这片区域会黑掉 7 秒，只剩角色周围一圈光。
-LEVELS[1].blackout = { x: 1600, w: 1100, duration: 7 };
+// 第 2 关的断电段：走进 1450~2300 这片区域会黑掉 7 秒，只剩角色周围一圈光。
+LEVELS[1].blackout = { x: 1450, w: 1200, duration: 7 };
 
 // 每波使用一段连续地面；第三关的两波分别安排在不同高度的宽平台。
 const hordeSpans = [
-  [[1680, 2140], [3430, 3840]],
-  [[2450, 2910], [3790, 4210]],
+  [[1100, 1400], [2000, 2300]],
+  [[600, 900], [1850, 2150]],
   [[390, 750, 920], [390, 770, 680]],
   [[1550, 2020], [4140, 4610]],
 ];

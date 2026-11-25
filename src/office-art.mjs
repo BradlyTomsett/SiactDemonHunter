@@ -1,4 +1,4 @@
-import { GROUND, VIEW } from './levels.mjs';
+﻿import { GROUND, VIEW } from './levels.mjs';
 
 const { width: W, height: H } = VIEW;
 const BASES = new Set(['desk', 'floor', 'monitorTop', 'printerTop']);
@@ -216,9 +216,9 @@ export function createOfficeArt(ctx, { round, oval, line }) {
         round(end - cabinet / 2 - 28, y + h + i * 13 - 5, 8, 2, 1, '#c6b8a6');
       }
     } else if (kind === 'monitorTop') {
-      screen(x, y + 7, w, Math.max(30, H - y + 2), camera);
+      screen(x, y + 7, w, Math.min(124, Math.max(30, H - y + 2)), camera);
     } else if (kind === 'printerTop') {
-      fill(x, y + h - 1, w, Math.max(0, H - y - h + 1), gradient(y + h, 55, '#c7ced0', '#778b93'));
+      fill(x, y + h - 1, w, Math.min(120, Math.max(0, H - y - h + 1)), gradient(y + h, 55, '#c7ced0', '#778b93'));
       round(x + w * .1, y + 29, w * .73, 21, 4, '#202934');
       round(x + w * .16, y + 39, w * .52, 15, 2, '#ebede3');
       line(x + w * .19, y + 43, x + w * .65, y + 43, '#a4b2bc');

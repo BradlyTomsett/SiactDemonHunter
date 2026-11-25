@@ -1,4 +1,4 @@
-import { FOOD_ICONS, VIEW, WEAPONS } from './levels.mjs';
+﻿import { FOOD_ICONS, VIEW, WEAPONS } from './levels.mjs';
 import { cableActive } from './game.mjs';
 import { createOfficeArt } from './office-art.mjs';
 
@@ -33,7 +33,8 @@ export function createRenderer(canvas) {
     const stride = p.grounded && Math.abs(p.vx) > 20 ? Math.sin(t * 22) : 0;
     const tucked = p.grounded ? 0 : p.vy < 0 ? 2 : 1;
     ctx.translate(p.x + p.w / 2, p.y);
-    ctx.scale(p.facing, 1);
+    // 角色比原版高 50%：立绘按碰撞盒等比拉伸，脚底仍然贴地。
+    ctx.scale(p.facing * (p.w / 17), p.h / 27);
     const leg = (x, gait, color) => {
       const foot = x + gait * 4;
       const ankle = 25 - tucked - Math.max(0, gait) * 1.5;
