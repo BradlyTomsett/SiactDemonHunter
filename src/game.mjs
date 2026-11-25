@@ -24,9 +24,13 @@ export function createGame(level, options = {}) {
   return game;
 }
 
-function makeEnemy(spawn) {
+function enemyObstacle(platform) {
+  return !platform.broken && !platform.oneway && platform.kind !== 'slope';
+}
+
+function makeEnemy(spawn, platforms) {
   const type = ENEMIES[spawn.type];
-  return {
+  const enemy = {
     ...spawn,
     y: spawn.y - type.height,
     baseY: spawn.y - type.height,
@@ -35,6 +39,15 @@ function makeEnemy(spawn) {
     flash: 0, tell: 0, cooldown: type.interval ? type.interval * 0.6 : 0,
     phase: spawn.phase ?? 0,
   };
+  if (enemy.type === 'flyer') {
+    let obstacle = platforms.find(item => enemyObstacle(item) && overlaps(enemy, item));
+    while (obstacle) {
+      enemy.y = obstacle.y - enemy.h;
+      obstacle = platforms.find(item => enemyObstacle(item) && overlaps(enemy, item));
+    }
+    enemy.baseY = enemy.y;
+  }
+  return enemy;
 }
 
 function resetLevel(game, checkpointIndex = -1, keep = null) {
@@ -62,7 +75,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     respawnTimer: 0,
   }));
   game.blackout = { active: false, timer: 0, fired: false };
-  game.enemies = level.enemies.map(makeEnemy);
+  game.enemies = level.enemies.map(spawn => makeEnemy(spawn, game.platforms));
   game.activeHordes = new Set();
   game.food = (level.food ?? []).map((item, index) => ({
     ...item, index, taken: game.collectedFood.has(index),
@@ -305,7 +318,8 @@ function updatePlatforms(game, dt) {
     if (!solid.crumble) continue;
     if (solid.broken) {
       solid.respawnTimer -= dt;
-      if (solid.respawnTimer <= 0) {
+      if (solid.respawnTimer <= 0 && !overlaps(p, solid)
+        && !game.enemies.some(enemy => enemy.health > 0 && overlaps(enemy, solid))) {
         solid.broken = false;
         solid.crumbleTimer = 0;
       }
@@ -423,7 +437,7 @@ function stepShots(game, fire, dt) {
     bullet.x += dx;
     bullet.y += dy;
     bullet.life -= dt;
-    if (game.platforms.some(solid => !solid.oneway && overlaps(sweep, solid))) return false;
+    if (game.platforms.some(solid => !solid.broken && !solid.oneway && overlaps(sweep, solid))) return false;
     const crumb = game.hazards.find(h => h.kind === 'crumb' && !h.destroyed && overlaps(h, sweep));
     if (crumb) { crumb.destroyed = true; sparks(game, crumb.x + crumb.w / 2, crumb.y, '#c79555', 7); return false; }
     const dropping = game.droppings.find(item => !item.destroyed && overlaps(item, sweep));
@@ -479,7 +493,7 @@ function startHordes(game) {
       const enemy = makeEnemy({
         type, x, y: ground - (flying ? 54 + slot * 12 : 0), horde: id,
         minX: left, maxX: right - width, phase: slot * 1.8,
-      });
+      }, game.platforms);
       enemy.direction = direction;
       enemy.cooldown += slot * .22;
       game.enemies.push(enemy);
@@ -489,7 +503,7 @@ function startHordes(game) {
   }
 }
 
-function stepHordeEnemy(enemy, player, dt) {
+function stepHordeEnemy(enemy, player, platforms, dt) {
   const flying = enemy.type === 'flyer';
   const aim = player.x + player.w / 2 - enemy.w / 2;
   enemy.direction = aim < enemy.x ? -1 : 1;
@@ -498,12 +512,14 @@ function stepHordeEnemy(enemy, player, dt) {
     ? clamp(aim - enemy.direction * stopShort, enemy.minX, enemy.maxX) : enemy.x;
   const speed = enemy.type === 'gunner' ? 70 : flying ? 112 : 140;
   const nextX = approach(enemy.x, target, speed * dt);
-  enemy.running = nextX !== enemy.x;
-  enemy.x = nextX;
+  const oldX = enemy.x;
+  moveEnemy(enemy, nextX - oldX, 'x', platforms, enemy.minX, enemy.maxX);
+  enemy.running = enemy.x !== oldX;
   if (flying) {
     enemy.phase += dt * 7;
     const height = clamp(player.y - 12, enemy.baseY - 28, enemy.baseY + 36);
-    enemy.y = approach(enemy.y, height + Math.sin(enemy.phase) * 9, 115 * dt);
+    const nextY = approach(enemy.y, height + Math.sin(enemy.phase) * 9, 115 * dt);
+    moveEnemy(enemy, nextY - enemy.y, 'y', platforms);
   }
 }
 
@@ -515,29 +531,25 @@ function stepEnemies(game, dt) {
     enemy.flash = Math.max(0, enemy.flash - dt);
 
     if (enemy.horde !== undefined) {
-      stepHordeEnemy(enemy, p, dt);
+      stepHordeEnemy(enemy, p, game.platforms, dt);
       if (enemy.type === 'patrol') continue;
     } else if (enemy.type === 'patrol') {
-      enemy.x += enemy.direction * type.speed * dt;
-      if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
-        enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX);
+      if (moveEnemy(enemy, enemy.direction * type.speed * dt, 'x', game.platforms, enemy.minX, enemy.maxX)) {
         enemy.direction *= -1;
       }
     } else if (enemy.type === 'gunner') {
       enemy.direction = p.x + p.w / 2 < enemy.x + enemy.w / 2 ? -1 : 1;
     } else if (enemy.type === 'flyer') {
       enemy.phase += dt * type.frequency * Math.PI * 2;
-      enemy.x += enemy.direction * type.speed * 0.55 * dt;
-      if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
-        enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX);
+      if (moveEnemy(enemy, enemy.direction * type.speed * 0.55 * dt, 'x', game.platforms, enemy.minX, enemy.maxX)) {
         enemy.direction *= -1;
       }
       const dx = Math.abs(p.x + p.w / 2 - (enemy.x + enemy.w / 2));
       const diving = !enemy.upperOnly && dx < 120 && Math.abs(p.y - enemy.y) < 140;
       const target = diving ? p.y - 6 : enemy.baseY + Math.sin(enemy.phase) * type.amplitude;
-      enemy.y = approach(enemy.y, target, 150 * dt);
+      moveEnemy(enemy, approach(enemy.y, target, 150 * dt) - enemy.y, 'y', game.platforms);
     } else if (enemy.type === 'charger') {
-      stepCharger(enemy, type, p, dt);
+      stepCharger(enemy, type, p, game.platforms, dt);
       continue;
     } else if (enemy.type === 'shielder') {
       // 盾牌狗：每 1.2 秒才转一次身，玩家可以趁它没转过来绕后开枪。
@@ -547,7 +559,9 @@ function stepEnemies(game, dt) {
         enemy.direction = p.x + p.w / 2 < enemy.x + enemy.w / 2 ? -1 : 1;
       }
       const dx = Math.abs(p.x - enemy.x);
-      if (dx > 26 && Math.abs(p.y - enemy.y) < 120) enemy.x += enemy.direction * type.speed * dt;
+      if (dx > 26 && Math.abs(p.y - enemy.y) < 120) {
+        moveEnemy(enemy, enemy.direction * type.speed * dt, 'x', game.platforms, 0, game.level.width - enemy.w);
+      }
       continue;
     }
 
@@ -575,7 +589,7 @@ function stepEnemies(game, dt) {
     shot.y += shot.vy * dt;
     shot.life -= dt;
     if (shot.life <= 0) return false;
-    if (game.platforms.some(solid => !solid.oneway && overlaps(shot, solid))) return false;
+    if (game.platforms.some(solid => !solid.broken && !solid.oneway && overlaps(shot, solid))) return false;
     if (overlaps(shot, game.player)) {
       damagePlayer(game, shot, 1);
       return false;
@@ -585,19 +599,38 @@ function stepEnemies(game, dt) {
   if (game.respawns === respawns && game.status === "playing") game.enemyShots = remainingShots;
 }
 
+// 同一套轴向碰撞用于移动小怪，允许穿过和玩家一样可穿透的单向平台。
+function moveEnemy(enemy, distance, axis, platforms, low = -Infinity, high = Infinity) {
+  if (distance === 0) return false;
+  const size = axis === 'x' ? 'w' : 'h';
+  const cross = axis === 'x' ? 'y' : 'x';
+  const crossSize = axis === 'x' ? 'h' : 'w';
+  const start = enemy[axis];
+  const end = start + distance;
+  let next = clamp(end, low, high);
+  for (const solid of platforms) {
+    if (!enemyObstacle(solid)) continue;
+    if (enemy[cross] >= solid[cross] + solid[crossSize] || enemy[cross] + enemy[crossSize] <= solid[cross]) continue;
+    const near = solid[axis] - enemy[size];
+    const far = solid[axis] + solid[size];
+    if (distance > 0 && start <= near) next = Math.min(next, near);
+    if (distance < 0 && start >= far) next = Math.max(next, far);
+  }
+  enemy[axis] = next;
+  return next !== end;
+}
+
 // 冲刺狗：走动 → 蓄力（红圈预告）→ 直线冲刺 → 撞墙/冲完眩晕 → 继续走。
-function stepCharger(enemy, type, p, dt) {
+function stepCharger(enemy, type, p, platforms, dt) {
   enemy.state = enemy.state ?? 'walk';
   enemy.timer = Math.max(0, (enemy.timer ?? 0) - dt);
   enemy.cooldown = Math.max(0, (enemy.cooldown ?? 0) - dt);
   const dx = Math.abs(p.x - enemy.x);
   const dy = Math.abs(p.y - enemy.y);
   if (enemy.state === 'walk') {
-    enemy.x += enemy.direction * type.speed * dt;
-    if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
-      enemy.x = clamp(enemy.x, enemy.minX, enemy.maxX);
-      enemy.direction *= -1;
-    }
+    const left = Math.min(enemy.minX, enemy.x);
+    const right = Math.max(enemy.maxX, enemy.x);
+    if (moveEnemy(enemy, enemy.direction * type.speed * dt, 'x', platforms, left, right)) enemy.direction *= -1;
     if (enemy.cooldown <= 0 && dx < type.range && dy < 90) {
       enemy.state = 'wind';
       enemy.timer = type.telegraph;
@@ -613,9 +646,7 @@ function stepCharger(enemy, type, p, dt) {
   } else if (enemy.state === 'charge') {
     const left = enemy.minX - 46;
     const right = enemy.maxX + 46;
-    const nextX = enemy.x + enemy.direction * type.chargeSpeed * dt;
-    const hitWall = nextX <= left || nextX >= right;
-    enemy.x = clamp(nextX, left, right);
+    const hitWall = moveEnemy(enemy, enemy.direction * type.chargeSpeed * dt, 'x', platforms, left, right);
     if (hitWall || enemy.timer <= 0) {
       enemy.state = 'stun';
       enemy.timer = type.stun;
@@ -645,6 +676,7 @@ function stepGrenades(game, input, dt) {
       const oldBottom = oldY + g.h;
       const fall = g.y - oldY;
       for (const platform of game.platforms) {
+        if (platform.broken) continue;
         if (platform.y < oldBottom || platform.y > oldBottom + fall) continue;
         const progress = (platform.y - oldBottom) / fall;
         const xAtImpact = oldX + (g.x - oldX) * progress;
@@ -1002,7 +1034,7 @@ function separateBoss(game, player, boss, arena) {
   const positions = Math.abs(player.x - left) <= Math.abs(player.x - right) ? [left, right] : [right, left];
   for (const x of positions) {
     if (x < arena.arenaLeft || x + player.w > arena.arenaRight) continue;
-    if (game.platforms.some(solid => !solid.oneway && overlaps({ ...player, x }, solid))) continue;
+    if (game.platforms.some(solid => !solid.broken && !solid.oneway && overlaps({ ...player, x }, solid))) continue;
     player.vx = Math.sign(x - player.x) * PLAYER.knockbackSpeed;
     player.x = x;
     return;
@@ -1232,7 +1264,14 @@ export function stepGame(game, input, dt) {
 
   const arena = game.boss?.cfg;
   const locked = arena?.framedArena && !gateOpen && game.boss.state !== 'waiting';
-  const cameraTarget = locked ? (arena.arenaLeft + arena.arenaRight - VIEW.width) / 2 : p.x - VIEW.width * .38;
+  let cameraTarget = p.x - VIEW.width * .38;
+  if (locked) {
+    const center = (arena.arenaLeft + arena.arenaRight - VIEW.width) / 2;
+    const margin = 16;
+    const left = Math.min(center, arena.arenaLeft - margin);
+    const right = Math.max(center, arena.arenaRight + margin - VIEW.width);
+    cameraTarget = clamp(p.x + p.w / 2 - VIEW.width / 2, left, right);
+  }
   const target = clamp(cameraTarget, 0, Math.max(0, game.level.width - VIEW.width));
   game.camera = approach(game.camera, target, 420 * dt);
   // 纵向关卡：镜头跟着往上抬，让上面的落点提前进画面。
@@ -1263,7 +1302,9 @@ export function restoreGame(game, snapshot) {
     ammo: snapshot.carry.ammo === "inf" ? Infinity : snapshot.carry.ammo,
     grenades: snapshot.carry.grenades === "inf" ? Infinity : snapshot.carry.grenades,
   } : null;
-  resetLevel(game, Number.isFinite(snapshot.checkpoint) ? snapshot.checkpoint : -1, carry);
+  const savedCheckpoint = Number.isInteger(snapshot.checkpoint) ? snapshot.checkpoint : -1;
+  const checkpoint = game.level.legacyCheckpoints?.[savedCheckpoint] ?? savedCheckpoint;
+  resetLevel(game, game.level.checkpoints[checkpoint] ? checkpoint : -1, carry);
   game.player.invincible = Math.max(game.player.invincible, 1.2);
   return game;
 }

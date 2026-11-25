@@ -166,7 +166,7 @@ decorate(stage1, 2010, 286, 'eraser');
 // 敌人：地面巡逻 + 底座上的射手 + 空中的飞怪
 patrol(stage1, 430, 330, 640);
 stage1.enemies.push({ type: 'gunner', x: 940, y: 250 });
-patrol(stage1, 1150, 950, 1300);
+patrol(stage1, 1260, 1240, 1390);
 flyer(stage1, 1250, 210, 950, 1450);
 stage1.enemies.push({ type: 'gunner', x: 1975, y: 222 });
 patrol(stage1, 2180, 2080, 2330);
@@ -190,7 +190,7 @@ cp(stage1, 170); cp(stage1, 830); cp(stage1, 1690); cp(stage1, 2100);
 hint(stage1, 0, '桌面是主路，文件堆和显示器底座是另一条路');
 hint(stage1, 620, '桌缝，跳过去');
 hint(stage1, 900, '踩上显示器底座能绕开地面的敌人');
-hint(stage1, 1560, '第二道桌缝，助跑再跳');
+hint(stage1, 1420, '第二道桌缝，助跑再跳');
 hint(stage1, 2900, '6 狗就在前面');
 
 // ── 第 2 关 · 抽屉与设备区：从半开抽屉爬上办公设备，再进开阔地 ────────────
@@ -225,21 +225,21 @@ springboard(stage2, 1950, 262, 60);
 decorate(stage2, 1080, 286, 'pencil');
 decorate(stage2, 1640, 286, 'cup');
 // 敌人
-patrol(stage2, 420, 330, 560);
+patrol(stage2, 493, 430, 560);
 shielder(stage2, 900);
 charger(stage2, 1350, 1230, 1600);
 gunner(stage2, 1650);
 flyer(stage2, 1500, 210, 1300, 1750);
-patrol(stage2, 1950, 1830, 2100);
+patrol(stage2, 2215, 2090, 2290);
 shielder(stage2, 2120);
 // 设备区各段都放守卫，密度和旧版相当
-patrol(stage2, 300, 200, 450);
+patrol(stage2, 610, 565, 668);
 patrol(stage2, 820, 700, 1000);
-stage2.enemies.push({ type: 'gunner', x: 600, y: 150 });
+stage2.enemies.push({ type: 'gunner', x: 600, y: 178 });
 flyer(stage2, 1200, 210, 1000, 1450);
 shielder(stage2, 1600);
-gunner(stage2, 1450);
-charger(stage2, 2000, 1900, 2150);
+stage2.enemies.push({ type: 'gunner', x: 1475, y: 236 });
+charger(stage2, 2130, 2090, 2240);
 patrol(stage2, 2300, 2200, 2450);
 gunner(stage2, 2380);
 hazard(stage2, 1230, 70, GROUND - 14, 'cable');
@@ -344,8 +344,8 @@ weapon(tower, 740, 320 - 14, 'heavy');
 
 // 敌人：地面巡逻 + 平台上的射手 + 中段少量飞行怪
 towerEnemy('patrol', 520, 1520, 420, 700);
-towerEnemy('gunner', 500, 920);
-towerEnemy('patrol', 500, 680, 400, 700);
+towerEnemy('gunner', 550, 920);
+towerEnemy('patrol', 500, 680, 400, 592);
 towerEnemy('gunner', 150, 380);
 towerEnemy('flyer', 700, 1150, 600, 880);
 towerEnemy('flyer', 300, 900, 60, 400);
@@ -400,7 +400,7 @@ hint(ch6, 280, '它冲过来时跳起来躲开，落地的震波要跳过');
 const monitor = createChapter('monitor', '第一关 · 7/9 显示器顶部', 1900, '攀过屏幕与线缆');
 for (const [x,w] of [[0,520],[600,540],[1220,680]]) monitor.platforms.push({ x, y: GROUND, w, h: 22, kind: 'monitorTop' });
 crate(monitor, 350, 256, 50); shelf(monitor, 800, 225, 100); crate(monitor, 1470, 256, 48);
-flyer(monitor, 720, 210, 640, 950); patrol(monitor, 1510, 1420, 1660);
+flyer(monitor, 720, 210, 640, 950); patrol(monitor, 1545, 1518, 1660);
 gunner(monitor, 1000); flyer(monitor, 1100, 190, 1050, 1200);
 shielder(monitor, 900);
 hazard(monitor, 740, 60, GROUND - 14, 'cable');
@@ -608,14 +608,18 @@ export const LEVELS = [
   mergeChapters('ch4', '第 4 关 · 屏幕到桌缝', '显示器顶部、打印机和桌缝终局', [monitor, printer, ch6]),
 ];
 
+// 改版前的长地图用了更多检查点。只迁移新版不存在的编号，避免重解释新版存档。
+LEVELS[0].legacyCheckpoints = { 5: 1, 6: 2, 7: 2, 8: 3, 9: 3, 10: 3, 11: 4, 12: 4 };
+LEVELS[1].legacyCheckpoints = { 5: 2, 6: 3, 7: 3, 8: 4, 9: 4, 10: 4 };
+
 // 第 2 关的断电段：走进 1450~2300 这片区域会黑掉 7 秒，只剩角色周围一圈光。
 LEVELS[1].blackout = { x: 1450, w: 1200, duration: 7 };
 
-// 每波使用一段连续地面；第三关的两波分别安排在不同高度的宽平台。
+// 每波使用没有实体障碍的连续地面；第三关分在两个不同高度的平台上。
 const hordeSpans = [
-  [[1100, 1400], [2000, 2300]],
-  [[600, 900], [1850, 2150]],
-  [[390, 750, 920], [390, 770, 680]],
+  [[1240, 1490], [2270, 2570]],
+  [[770, 1070], [2090, 2390]],
+  [[510, 750, 920], [390, 620, 680]],
   [[1550, 2020], [4140, 4610]],
 ];
 for (const [index, level] of LEVELS.entries()) {

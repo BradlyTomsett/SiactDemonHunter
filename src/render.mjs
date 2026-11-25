@@ -628,7 +628,7 @@ export function createRenderer(canvas) {
     const p = game.player;
     const center = p.x + p.w / 2;
     const support = game.platforms
-      .filter(surface => center >= surface.x && center <= surface.x + surface.w && p.y + p.h <= surface.y + 1)
+      .filter(surface => !surface.broken && center >= surface.x && center <= surface.x + surface.w && p.y + p.h <= surface.y + 1)
       .reduce((closest, surface) => !closest || surface.y < closest.y ? surface : closest, null);
     if (support) {
       ctx.save();
