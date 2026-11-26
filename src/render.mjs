@@ -583,7 +583,7 @@ export function createRenderer(canvas) {
     office.background(game.camera, cameraY, game.level);
     ctx.save();
     ctx.translate(-Math.round(game.camera), -Math.round(cameraY));
-    office.gaps(game.level, game.camera);
+    office.gaps(game.level, game.camera, cameraY);
     for (const d of game.level.decoration) if (office.visible(d, game.camera, cameraY)) office.decoration(d, game.camera);
     for (const platform of game.platforms) {
       if (platform.kind === 'cargoLift') office.liftGuide(platform);
@@ -661,8 +661,26 @@ export function createRenderer(canvas) {
         }
       }
     }
+    for (const item of game.fallers) {
+      const { x, y, w, h, warning } = item;
+      if (warning) {
+        if (!office.visible({ ...item, h: item.distance }, game.camera, cameraY)) continue;
+        const signalY = Math.max(y, cameraY + 48);
+        if (Math.floor(game.elapsed * 9) % 2 === 0) {
+          ctx.fillStyle = '#e7a44c44';
+          ctx.fillRect(x + 3, y, w - 6, item.distance);
+          round(x - 2, signalY - 18, w + 4, 18, 5, '#fff1ae');
+        }
+        ctx.fillStyle = '#794e2b'; ctx.textAlign = 'center'; ctx.font = 'bold 15px sans-serif';
+        ctx.fillText('↓', x + w / 2, signalY - 4);
+      } else if (office.visible(item, game.camera, cameraY)) {
+        round(x, y, w, h, 3, '#a77757');
+        line(x + 3, y + 3, x + w - 3, y + 3, '#f2ca92', 2);
+        line(x + w / 2, y - 8, x + w / 2, y - 3, '#fff0c87a', 1.5);
+      }
+    }
     const firstPlatform = game.platforms.find(platform => platform.oneway);
-    if ((game.level.height ?? 360) <= 360 && firstPlatform && game.player.x < firstPlatform.x + firstPlatform.w && office.visible(firstPlatform, game.camera, cameraY)) {
+    if (((game.level.height ?? 360) <= 360 || game.level.scroll === 'diagonal') && firstPlatform && game.player.x < firstPlatform.x + firstPlatform.w && office.visible(firstPlatform, game.camera, cameraY)) {
       const x = firstPlatform.x + firstPlatform.w / 2;
       const y = firstPlatform.y + 27 + Math.sin(game.elapsed * 4) * 3;
       round(x - 12, y - 12, 24, 23, 9, '#124958');

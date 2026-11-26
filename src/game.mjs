@@ -97,6 +97,7 @@ function resetLevel(game, checkpointIndex = -1, keep = null) {
     ...item, index, taken: game.collectedFood.has(index),
   }));
   game.hazards = level.hazards.map(hazard => ({ ...hazard, destroyed: false }));
+  game.fallers = [];
   game.supplies = level.supplies.map(supply => ({
     ...supply, x: supply.x - 4, y: supply.y - 8, w: 22, h: 22, taken: false,
   }));
@@ -152,7 +153,7 @@ function nearestCheckpoint(game, player) {
   const points = game.level.checkpoints || [];
   let index = -1;
   // 纵向关卡要在检查点所在的固定台面落地，跳到同样高度不会提前解锁。
-  if ((game.level.height ?? VIEW.height) > VIEW.height) {
+  if (game.level.scroll !== 'diagonal' && (game.level.height ?? VIEW.height) > VIEW.height) {
     if (!player.grounded || player.climbing) return -1;
     const feet = player.y + player.h;
     const center = player.x + player.w / 2;
@@ -189,16 +190,40 @@ function die(game, reason) {
   return false;
 }
 
-function movePlatforms(game) {
+function cargoLiftY(platform, standing, dt) {
+  const { top, bottom, speed } = platform.motion;
+  if (standing && platform.y > top) platform.liftState = 'up';
+  if (platform.liftState === 'up') {
+    // 普通起跳仍可返回货梯。乘客缺席更久时，空梯就回出发站。
+    platform.emptyTime = standing ? 0 : (platform.emptyTime ?? 0) + dt;
+    if (platform.emptyTime < 1.15) {
+      const y = approach(platform.y, top, speed * dt);
+      if (y === top) {
+        platform.liftState = 'docked';
+        platform.dockTime = 2.3;
+      }
+      return y;
+    }
+    platform.liftState = 'down';
+  }
+  if (platform.liftState === 'docked') {
+    platform.dockTime = standing ? 2.3 : platform.dockTime - dt;
+    if (platform.dockTime > 0) return top;
+    platform.liftState = 'down';
+  }
+  return approach(platform.y, bottom, speed * 1.55 * dt);
+}
+
+function movePlatforms(game, dt) {
   const player = game.player;
   for (const platform of game.platforms) {
     if (!platform.motion || platform.broken) continue;
-    const { distance, speed, axis } = platform.motion;
-    const wave = Math.sin(game.elapsed * speed / distance);
+    const { distance, speed, axis, top } = platform.motion;
     const standing = player.grounded && Math.abs(player.y + player.h - platform.y) < 1
       && player.x + player.w > platform.x && player.x < platform.x + platform.w;
     if (axis === 'y') {
-      const y = platform.baseY + wave * distance;
+      const y = top === undefined ? platform.baseY + Math.sin(game.elapsed * speed / distance) * distance
+        : cargoLiftY(platform, standing, dt);
       const dy = y - platform.y;
       platform.previousY = platform.y;
       platform.y = y;
@@ -208,7 +233,7 @@ function movePlatforms(game) {
       }
       continue;
     }
-    const x = platform.baseX + wave * distance;
+    const x = platform.baseX + Math.sin(game.elapsed * speed / distance) * distance;
     const dx = x - platform.x;
     platform.x = x;
     if (standing) player.x = clamp(player.x + dx, 0, game.level.width - player.w);
@@ -216,6 +241,16 @@ function movePlatforms(game) {
       if (item.platform === platform) item.x += dx;
     }
   }
+}
+
+function updateFallers(game) {
+  const speed = 174;
+  const warning = .95;
+  game.fallers = (game.level.fallers ?? []).flatMap(({ x, top, distance, period, offset }) => {
+    const t = (game.elapsed + offset) % period;
+    if (t >= warning + distance / speed) return [];
+    return [{ x, y: top + Math.max(0, t - warning) * speed, w: 20, h: 16, distance, warning: t < warning }];
+  });
 }
 
 function movePlayer(game, input, dt) {
@@ -1320,7 +1355,7 @@ export function stepGame(game, input, dt) {
   p.knockback = Math.max(0, p.knockback - dt);
   p.flash = Math.max(0, p.flash - dt);
   p.boost = Math.max(0, p.boost - dt);
-  movePlatforms(game);
+  movePlatforms(game, dt);
   movePlayer(game, input, dt);
   const levelHeight = game.level.height ?? VIEW.height;
   if (p.y > levelHeight + 18) {
@@ -1331,6 +1366,7 @@ export function stepGame(game, input, dt) {
   game.checkpoint = Math.max(game.checkpoint, nearestCheckpoint(game, p));
   // 会塌的书堆 / 键帽弹簧 / 断电桥段
   updatePlatforms(game, dt);
+  updateFallers(game);
   updateBlackout(game, dt);
   startHordes(game);
   const beforeEnemies = game.respawns;
@@ -1350,6 +1386,9 @@ export function stepGame(game, input, dt) {
   }
   for (const hazard of game.hazards) {
     if (!hazard.destroyed && (hazard.kind !== 'cable' || cableActive(game.elapsed)) && overlaps(p, hazard) && damagePlayer(game, hazard, hazard.damage)) return;
+  }
+  for (const item of game.fallers) {
+    if (!item.warning && overlaps(p, item) && damagePlayer(game, item, 1)) return;
   }
   for (const supply of game.supplies) {
     if (supply.giftVy !== undefined) {
@@ -1441,7 +1480,8 @@ export function restoreGame(game, snapshot) {
   } : null;
   const savedCheckpoint = Number.isInteger(snapshot.checkpoint) ? snapshot.checkpoint : -1;
   const usesCurrentLayout = game.level.checkpointLayout && snapshot.checkpointLayout === game.level.checkpointLayout;
-  const legacyCheckpoint = usesCurrentLayout ? undefined : game.level.legacyCheckpoints?.[savedCheckpoint];
+  const migration = game.level.checkpointMigrations?.[snapshot.checkpointLayout] ?? game.level.legacyCheckpoints;
+  const legacyCheckpoint = usesCurrentLayout ? undefined : migration?.[savedCheckpoint];
   const checkpoint = legacyCheckpoint ?? savedCheckpoint;
   resetLevel(game, game.level.checkpoints[checkpoint] ? checkpoint : -1, carry);
   game.player.invincible = Math.max(game.player.invincible, 1.2);

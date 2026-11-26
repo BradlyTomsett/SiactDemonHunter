@@ -13,27 +13,26 @@ const overlap = (a, b) => a.x + a.w > b.x + .001 && a.x < b.x + b.w - .001
 
 test('both paths can reach the boss arena without losing a life to terrain', () => {
   for (const upperRoute of [false, true]) {
-    const game = createGame(terrainOnly);
+    const game = createGame({ ...level, enemies: [], hordes: [] });
     let reachedUpper = false;
-    for (let frame = 0; frame < 3200 && game.player.x < level.boss.trigger; frame++) {
+    for (let frame = 0; frame < 6800 && game.player.x < level.boss.trigger; frame++) {
       const p = game.player;
       const climb = upperRoute && !reachedUpper && p.x > 456;
-      const jumpFromUpper = feet(game) === 202 && [
-        [720, 950], [1550, 1775], [2210, 2333], [2600, 2640],
-      ].some(([start, end]) => p.x > start && p.x < end);
-      const jumpFromLower = [
-        [2175, 2248], [2834, 2860],
-      ].some(([start, end]) => p.x >= start && p.x < end);
+      const jumpFromUpper = upperRoute && [720,1550,2210,3140,3840,4116,5033,5528,6715,7156]
+        .some(edge => p.x >= edge && p.x < edge + 24);
+      const jumpFromLower = [2248,3190,4140,5060,5550,5890,6740,7180]
+        .some(edge => p.x >= edge - 24 && p.x < edge);
+      const jumpOverTrap = level.hazards.some(h => p.x >= h.x - 53 && p.x < h.x - 35 && feet(game) === h.y + h.h);
       step(game, {
         move: climb ? 0 : 1,
         aimY: climb ? -1 : 0,
-        jump: p.grounded && (upperRoute ? jumpFromUpper || jumpFromLower : jumpFromLower),
+        jump: p.grounded && (jumpFromUpper || jumpFromLower || jumpOverTrap),
       });
-      if (p.grounded && feet(game) === 202) reachedUpper = true;
-      if (p.grounded && p.x >= 2335 && p.x < 2500) assert.equal(feet(game), upperRoute ? 202 : GROUND);
+      if (p.grounded && p.x < 650 && feet(game) === 202) reachedUpper = true;
     }
     assert.ok(game.player.x >= level.boss.trigger);
     assert.equal(reachedUpper, upperRoute);
+    assert.equal(game.player.health, game.player.maxHealth);
     assert.equal(game.respawns, 0);
   }
 });
@@ -41,10 +40,10 @@ test('both paths can reach the boss arena without losing a life to terrain', () 
 test('each ladder works in both directions and both bridges land on a lower floor', () => {
   for (const ladder of level.ladders) {
     const game = createGame(terrainOnly);
-    game.player.x = ladder.x + 3;
-    for (let frame = 0; frame < 120; frame++) step(game, { aimY: -1 });
+    Object.assign(game.player, { x: ladder.x + 3, y: ladder.y + ladder.h - game.player.h });
+    for (let frame = 0; frame < 180; frame++) step(game, { aimY: -1 });
     assert.equal(feet(game), ladder.y);
-    for (let frame = 0; frame < 120; frame++) step(game, { aimY: 1 });
+    for (let frame = 0; frame < 180; frame++) step(game, { aimY: 1 });
     assert.equal(feet(game), ladder.y + ladder.h);
   }
   for (const x of [772, 1600]) {
@@ -62,10 +61,11 @@ test('each ladder works in both directions and both bridges land on a lower floo
 
 test('checkpoints resume in the same section and scenery and pickups have support', () => {
   // 上一版已经发布的第一关存档使用这些检查点。
-  const previousPositions = [170, 830, 1690, 2100, 2952];
-  for (const [index, x] of previousPositions.entries()) {
+  const corresponding = [0,1,2,3,level.checkpoints.length-1];
+  for (const [index, target] of corresponding.entries()) {
     const game = restoreGame(createGame(terrainOnly), { checkpoint: index, score: 145, lives: 2 });
-    assert.ok(Math.abs(game.player.x - x) < 110, `checkpoint ${index}`);
+    assert.equal(game.checkpoint, target);
+    assert.equal(game.player.x, level.checkpoints[target].x);
     for (let frame = 0; frame < 140; frame++) step(game);
     assert.equal(feet(game), GROUND);
     assert.equal(game.score, 145 + game.collectedFood.size);
@@ -80,7 +80,9 @@ test('checkpoints resume in the same section and scenery and pickups have suppor
 
 test('both routes trigger ten enemies from outside the screen without a solid-terrain overlap', () => {
   for (const [id, horde] of level.hordes.entries()) {
-    for (const y of [202, GROUND]) {
+    const upper = level.platforms.find(p => p.kind === 'worktop' && p.x < horde.left && p.x + p.w >= horde.right);
+    assert.ok(upper);
+    for (const y of [upper.y, GROUND]) {
       for (const fraction of [.05, .5, .95]) {
         const game = createGame(level);
         const x = horde.left + (horde.right - horde.left) * fraction - game.player.w / 2;

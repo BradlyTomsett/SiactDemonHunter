@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cableActive, createGame, restoreGame, stepGame } from '../src/game.mjs';
+import { createGame, restoreGame, stepGame } from '../src/game.mjs';
 import { LEVELS, VIEW } from '../src/levels.mjs';
+import { createOfficeArt } from '../src/office-art.mjs';
 import { makeSnapshot } from '../src/save.mjs';
 
 const [ramp, tower, shaft] = LEVELS.slice(1);
@@ -32,83 +33,130 @@ function jumpTo(game, platform, [wait, walkDirection, walkFrames, direction], ta
   assert.fail(`failed to land on ${platform.kind} at ${platform.x}, ${platform.y}`);
 }
 
-test('stage two walks up both ramps, jumps the desk gap, and walks back up the descent', () => {
-  const game = isolated(ramp);
-  const visitedHeights = new Set();
-  for (let frame = 0; frame < 2050 && game.player.x < 2710; frame++) {
-    const jump = game.player.grounded && game.player.x > 1725 && game.player.x < 1760;
-    step(game, { move: 1, jump });
-    if (game.player.grounded) visitedHeights.add(feet(game));
-  }
-  assert.ok(game.player.x >= 2710);
-  assert.ok([286, 228, 168, 226].every(y => visitedHeights.has(y)));
-  for (let frame = 0; frame < 600 && game.player.x > 2250; frame++) step(game, { move: -1 });
-  assert.ok(game.player.x <= 2250, 'reverse direction at the downhill join');
-  assert.equal(game.respawns, 0);
+test('all four routes have the intended scale before their boss arena', () => {
+  assert.ok((LEVELS[0].boss.trigger - LEVELS[0].spawn.x) / VIEW.width >= 11.5);
+  assert.ok((ramp.boss.trigger - ramp.spawn.x) / VIEW.width >= 12);
+  assert.ok((tower.spawn.y - tower.boss.ground) / VIEW.height >= 8);
+  assert.ok((shaft.spawn.y - shaft.boss.ground) / VIEW.height >= 11);
+  assert.ok(shaft.platforms.filter(p => p.kind === 'cargoLift')
+    .reduce((sum, p) => sum + p.motion.bottom - p.motion.top, 0) > 3700);
 });
 
-test('stage two has a damage-free route past the cable, spill and crumbs', () => {
+test('stage two climbs five ramps, crosses the gap and clears traps at full health', () => {
   const game = createGame({ ...ramp, enemies: [], hordes: [] });
-  const crumbs = game.hazards.find(hazard => hazard.kind === 'crumb');
-  for (let frame = 0; frame < 2900 && game.player.x < ramp.boss.trigger; frame++) {
+  const groundHeights = new Set();
+  const edges = [790,3150,4750,6360,7600];
+  for (let frame = 0; frame < 6200 && game.player.x < ramp.boss.trigger; frame++) {
     const { x, grounded } = game.player;
     const y = feet(game);
-    const waitForCable = x > 875 && x < 902 && (cableActive(game.elapsed) || game.elapsed % 3 > 2.36);
-    const ontoShelf = x > 1365 && x < 1415 && y === 168;
-    const acrossSpill = x > 1500 && x < 1574 && y === 98;
-    const acrossGap = x > 1725 && x < 1760;
-    const fire = x > 2050 && x < 2140;
-    step(game, {
-      move: waitForCable ? 0 : 1, jump: grounded && (ontoShelf || acrossSpill || acrossGap),
-      fire, aimX: 1, aimY: fire ? .414 : 0,
-    });
+    const escapeDip = [920,4872,7720].some(edge => x > edge - 28 && x < edge && y > 232);
+    const crossGap = edges.some(edge => x >= edge - 24 && x < edge);
+    const avoidTrap = ramp.hazards.some(h => x >= h.x - 53 && x < h.x - 35 && y === h.y + h.h);
+    step(game, { move: 1, jump: grounded && (escapeDip || crossGap || avoidTrap) });
+    if (grounded) groundHeights.add(y);
   }
   assert.ok(game.player.x >= ramp.boss.trigger);
-  assert.ok(crumbs.destroyed);
+  assert.ok([660,590,505,415,327,232].every(height => groundHeights.has(height)));
   assert.equal(game.player.health, game.player.maxHealth);
   assert.equal(game.respawns, 0);
 });
 
+test('every stage-two ramp also supports a return trip', () => {
+  for (const slope of ramp.platforms.filter(p => p.kind === 'slope')) {
+    const game = isolated(ramp);
+    const terrace = ramp.platforms.find(p => p.x === slope.x + slope.w);
+    Object.assign(game.player, { x: terrace.x + 45, y: terrace.y - game.player.h, grounded: true });
+    for (let frame = 0; frame < 300 && game.player.x > slope.x - 20; frame++) step(game, { move: -1 });
+    assert.ok(game.player.x <= slope.x - 20);
+    assert.equal(game.respawns, 0);
+  }
+});
+
 test('stage three can climb every step and all three moving trays with ordinary jumps', () => {
-  const game = isolated(tower);
+  const game = createGame({ ...tower, enemies: [], hordes: [] });
   const inputs = [
-    [0,0,0,1], [0,1,72,1], [0,1,72,1], [0,-1,12,-1],
-    [0,-1,60,-1], [0,0,0,-1], [0,1,12,1], [0,1,60,1],
-    [0,1,12,1], [0,0,0,-1], [0,-1,108,-1], [0,-1,12,-1],
-    [0,1,24,1], [0,1,12,1], [0,1,48,1], [0,-1,60,-1],
-    [0,-1,36,-1], [0,-1,24,-1], [0,0,0,1], [0,1,36,1],
+    [0,1,48,1], [0,1,36,1], [0,1,72,1], [0,1,72,1], [0,-1,24,-1], [0,-1,72,-1],
+    [0,-1,72,-1], [0,-1,24,-1], [0,1,36,1], [0,1,96,1], [0,1,60,1], [0,1,36,1],
+    [0,0,0,-1], [0,-1,72,-1], [0,-1,48,-1], [0,-1,60,-1], [0,1,12,1], [0,1,60,1],
+    [0,1,48,1], [0,1,48,1], [0,0,0,-1], [0,-1,96,-1], [0,-1,24,-1], [0,-1,48,-1],
+    [0,-1,24,-1], [0,1,24,1], [0,1,72,1], [0,1,84,1], [0,1,72,1], [0,-1,24,-1],
+    [280,-1,84,-1], [0,-1,72,-1], [0,-1,36,-1], [0,1,12,1], [0,1,60,1], [0,0,0,1],
   ];
   const rows = game.platforms.filter(p => p.arrow);
   assert.equal(rows.length, inputs.length);
   walk(game, 20);
-  for (const [index, row] of rows.entries()) jumpTo(game, row, inputs[index], row.y === tower.boss.ground ? 431 : undefined);
+  for (const [index, row] of rows.entries()) {
+    jumpTo(game, row, inputs[index], row.y === tower.boss.ground ? 633 : undefined);
+  }
+  assert.equal(game.respawns, 0);
+  assert.equal(game.player.health, game.player.maxHealth);
+});
+
+test('stage four reaches the equipment floor by riding both lifts from bottom to top', () => {
+  const game = isolated(shaft);
+  const route = [
+    [2,[0,0,0,0]], [3,[0,0,0,1]], [7,[0,1,60,1]],
+    [4,[0,1,96,1]], [8,[0,1,144,1]], [6,[0,1,48,1],2993],
+  ];
+  const lifts = game.platforms.filter(p => p.kind === 'cargoLift');
+  walk(game, 20);
+  for (let frame = 0; frame < 1900 && center(game) < 1725; frame++) {
+    step(game, { move: 1, jump: game.player.grounded && game.player.x > 1157 && game.player.x < 1180 });
+  }
+  assert.ok(center(game) >= 1725);
+  assert.ok(lifts.every(lift => lift.y === lift.motion.bottom));
+  for (const [index, inputs, x] of route) {
+    const platform = game.platforms[index];
+    jumpTo(game, platform, inputs, x);
+    if (platform.kind !== 'cargoLift') continue;
+    const pickup = game.food.find(item => item.platform === platform && !item.taken);
+    const start = pickup?.y;
+    let frames = 0;
+    while (platform.y > platform.motion.top && frames++ < 2900) {
+      step(game);
+      assert.ok(groundOn(game, platform), 'the passenger stays on the lift');
+    }
+    assert.equal(platform.y, platform.motion.top);
+    assert.ok(frames > 1500);
+    if (pickup) assert.ok(Math.abs(start - pickup.y - (platform.motion.bottom - platform.motion.top)) < .01);
+  }
   assert.equal(game.respawns, 0);
 });
 
-test('stage four can go from the horizontal corridor to the top by riding both cargo lifts', () => {
-  const game = isolated(shaft);
-  const rows = game.platforms.filter(p => p.arrow);
-  const lifts = game.platforms.filter(p => p.kind === 'cargoLift');
-  const inputs = [
-    [0,0,0,1], [0,0,0,0], [0,0,0,0], [0,0,0,1],
-    [0,0,0,-1], [0,-1,24,-1], [0,0,0,-1], [0,1,12,1],
-    [0,0,0,-1], [0,-1,48,-1], [0,-1,24,-1], [0,1,36,1],
-  ];
-  walk(game, 20);
-  while (center(game) < 798) step(game, { move: 1 });
-  for (const [index, row] of rows.entries()) {
-    if (index === 3 || index === 7) {
-      const lift = lifts[index === 3 ? 0 : 1];
-      jumpTo(game, lift, index === 3 ? [900,-1,60,-1] : [125,1,108,1]);
-      for (let frame = 0; frame < 1200 && feet(game) > row.y + 40; frame++) {
-        step(game);
-        assert.ok(groundOn(game, lift), 'the passenger stays on the lift');
-      }
-      assert.ok(feet(game) <= row.y + 40);
-    }
-    jumpTo(game, row, inputs[index], row.y === shaft.boss.ground ? 431 : undefined);
+test('lifts keep rising during a jump and return when a rider walks off', () => {
+  for (let index = 0; index < 2; index++) {
+    const game = isolated(shaft);
+    const lift = game.platforms.filter(p => p.kind === 'cargoLift')[index];
+    const player = game.player;
+    Object.assign(player, { x: lift.x + 37, y: lift.y - player.h, grounded: true });
+    walk(game, 110);
+    const beforeJump = lift.y;
+    step(game, { jump: true });
+    walk(game, 121);
+    assert.ok(lift.y < beforeJump);
+    assert.ok(groundOn(game, lift));
+
+    walk(game, 96, -1);
+    walk(game, 650);
+    assert.equal(lift.y, lift.motion.bottom);
+    assert.equal(game.respawns, 0);
   }
-  assert.equal(game.respawns, 0);
+});
+
+test('pit markers match the actual raised floor and the scrolling corridor', () => {
+  const edges = [];
+  const art = createOfficeArt({
+    createLinearGradient: () => ({ addColorStop() {} }),
+    beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {},
+  }, { line: (x, y) => edges.push([x, y]) });
+  for (const [level, camera, cameraY, x, y] of [
+    [LEVELS[0], 5290, 0, 5550, 248], [ramp, 6100, 160, 6360, 327],
+    [shaft, 900, 3972, 1180, 4210],
+  ]) {
+    edges.length = 0;
+    art.gaps(level, camera, cameraY);
+    assert.ok(edges.some(([edgeX, edgeY]) => edgeX === x && edgeY === y));
+  }
 });
 
 test('supplies and legacy checkpoints have support and ladders reach real floors', () => {
@@ -163,8 +211,8 @@ test('vertical checkpoints unlock on a real floor and survive a fall', () => {
   }
 });
 
-test('all six hordes enter from outside the visible area and clear solid terrain', () => {
-  for (const level of [ramp, tower, shaft]) {
+test('all eight hordes enter from outside the visible area and clear solid terrain', () => {
+  for (const level of LEVELS) {
     for (const [id, wave] of level.hordes.entries()) {
       for (const ratio of [.05, .25, .5, .75, .95]) {
         for (const above of [0, 45, 80]) {

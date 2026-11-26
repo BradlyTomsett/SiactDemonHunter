@@ -40,37 +40,49 @@ export function createOfficeArt(ctx, { round, oval, line }) {
       && y + h >= cameraY - margin && y <= cameraY + H + margin;
   }
 
-  // 纵向关卡（工位攀登）用的墙面背景：随镜头上下滚动，不出现固定的天花板。
-  function tallWall(camera, cameraY, shaft = false) {
-    fill(0, 0, W, H, shaft ? gradient(0, H, '#d7e3e8', '#b1c6cf', '#8faab5') : gradient(0, H, '#e7f7f0', '#c3e6da', '#a2d3c8'));
-    const panelH = 200;
-    const offsetX = -(camera * 0.16 % 240);
-    const offsetY = -(cameraY * 0.45 % panelH);
-    for (let y = offsetY - panelH; y < H + panelH; y += panelH) {
-      for (let x = offsetX - 240; x < W + 240; x += 240) {
-        fill(x + 16, y + 12, 208, 140, shaft ? '#a2b8c0' : '#d3ece2');
-        fill(x + 20, y + 16, 200, 132, shaft ? '#c5d4d9' : '#bfe2d6');
-        for (let row = y + 26; row < y + 140; row += 12) fill(x + 22, row, 196, 2, '#d9f0e6');
-        fill(x, y + 152, 240, 20, '#93c0b3');
-        fill(x, y + 152, 240, 3, '#e2f6ee');
-        if (!shaft) {
-          oval(x + 30, y + 146, 13, 6, '#6ba98c');
-          oval(x + 22, y + 136, 7, 5, '#7fbf9c');
-          oval(x + 200, y + 144, 10, 5, '#6ba98c');
-        }
+  function gardenWindow(camera, cameraY) {
+    fill(0, 0, W, H, gradient(0, H, '#edf8dd', '#c5dfbe', '#7db5a7'));
+    const first = -(camera * .31 % 370);
+    const row = -(cameraY * .29 % 275);
+    for (let x = first - 370; x < W; x += 370) {
+      fill(x + 19, 0, 11, H, '#7ea39a88');
+      fill(x + 25, 0, 3, H, '#e8f6d8');
+      for (let y = row - 275; y < H + 180; y += 275) {
+        line(x + 26, y + 110, x + 144, y + 30, '#75a99290', 4);
+        oval(x + 127, y + 70, 81, 27, '#71a48767');
+        oval(x + 202, y + 37, 69, 22, '#8cbc8986');
+        oval(x + 75, y + 122, 57, 22, '#51947766');
+        fill(x + 25, y + 170, 351, 3, '#f4ffe4aa');
       }
     }
-    ctx.save();
-    ctx.globalAlpha = 0.25;
-    for (let y = offsetY - panelH; y < H + panelH; y += panelH) {
-      fill(0, y + 4, W, 3, '#ffffff');
+  }
+
+  function cargoShaft(camera, cameraY, level) {
+    fill(0, 0, W, H, gradient(0, H, '#354452', '#344955', '#202e39'));
+    const row = -(cameraY * .52 % 128);
+    const offset = -(camera * .32 % 212);
+    for (let x = offset - 212; x < W; x += 212) {
+      fill(x, 0, 16, H, '#192a36');
+      fill(x + 16, 0, 3, H, '#718893');
+      for (let y = row - 128; y < H + 128; y += 128) {
+        fill(x + 29, y + 31, 168, 10, '#192a36');
+        fill(x + 34, y + 34, 45, 3, '#829d9e');
+        for (let vent = 0; vent < 4; vent++) fill(x + 130, y + 67 + vent * 6, 56, 2, '#263a47');
+      }
     }
-    ctx.restore();
+    if (cameraY > level.spawn.y - H) {
+      fill(0, 68, W, 16, '#a64d50');
+      fill(0, 66, W, 3, '#d08371');
+    }
   }
 
   function background(camera, cameraY = 0, level) {
-    if ((level?.height ?? H) > H) {
-      tallWall(camera, cameraY, level.id === 'shaft');
+    if (level.id === 'tower') {
+      gardenWindow(camera, cameraY);
+      return;
+    }
+    if (level.id === 'shaft') {
+      cargoShaft(camera, cameraY, level);
       return;
     }
     fill(0, 0, W, H, gradient(0, H, '#edfef8', '#c0e8dd', '#88cebd', '#54a9ab'));
@@ -139,36 +151,45 @@ export function createOfficeArt(ctx, { round, oval, line }) {
     if (tint) fill(0, 0, W, H, tint);
   }
 
-  function gaps(level, camera) {
-    // 纵向关卡没有「地面缺口」这一说，直接不画。
-    if ((level.height ?? H) > H) return;
+  function gaps(level, camera, cameraY) {
+    if (level.id === 'tower') return;
     let gaps = gapsByLevel.get(level);
     if (!gaps) {
-      const bases = level.platforms.filter(item => BASES.has(item.kind)
-        || (!item.oneway && (item.kind === 'slope' || item.kind === 'worktop'))).sort((a, b) => a.x - b.x);
+      const bases = level.platforms.filter(item => level.id === 'shaft' ? item.kind === 'floor'
+        : BASES.has(item.kind) || (!item.oneway && (item.kind === 'slope' || item.kind === 'worktop')));
+      bases.sort((a, b) => a.x - b.x);
       gaps = [];
-      let right = 0;
+      let edge;
       for (const base of bases) {
-        if (base.x > right) gaps.push({ x: right, w: base.x - right });
-        right = Math.max(right, base.x + base.w);
+        if (edge && base.x > edge.x) {
+          const top = Math.min(edge.y, base.y);
+          gaps.push({ x: edge.x, w: base.x - edge.x, y: top,
+            h: Math.max(edge.y, base.y) - top + 92, leftY: edge.y, rightY: base.y });
+        }
+        const right = base.x + base.w;
+        if (!edge || right > edge.x) edge = { x: right, y: base.y - (base.rise ?? 0) };
       }
       gapsByLevel.set(level, gaps);
     }
     for (const gap of gaps) {
-      if (!visible(gap, camera)) continue;
-      const end = gap.x + gap.w;
-      fill(gap.x, GROUND, gap.w, H - GROUND, gradient(GROUND, H - GROUND, '#192736', '#101823', '#090e16'));
-      line(gap.x, GROUND, gap.x, GROUND + 13, '#ffc583', 2);
-      line(end, GROUND, end, GROUND + 13, '#ffc583', 2);
-      const mid = gap.x + gap.w / 2;
-      line(mid - 4, GROUND + 17, mid, GROUND + 21, '#b1c0c7', 1.4);
-      line(mid, GROUND + 21, mid + 4, GROUND + 17, '#b1c0c7', 1.4);
+      if (!visible(gap, camera, cameraY)) continue;
+      const { x, w, y, h, leftY, rightY } = gap;
+      ctx.fillStyle = gradient(y, h, '#253644', '#121c25', '#090e16');
+      ctx.beginPath();
+      ctx.moveTo(x, leftY);
+      ctx.lineTo(x + w, rightY);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.closePath();
+      ctx.fill();
+      line(x, leftY, x, leftY + 13, '#ffc583', 2);
+      line(x + w, rightY, x + w, rightY + 13, '#ffc583', 2);
     }
   }
 
   function liftGuide(platform) {
-    const top = platform.baseY - platform.motion.distance;
-    const bottom = platform.baseY + platform.motion.distance;
+    const top = platform.motion.top ?? platform.baseY - platform.motion.distance;
+    const bottom = platform.motion.bottom ?? platform.baseY + platform.motion.distance;
     for (const x of [platform.baseX + 12, platform.baseX + platform.w - 12]) {
       fill(x - 2, top, 5, bottom - top, '#48616d50');
       line(x, top, x, bottom, '#dce8e6', 1);
@@ -315,6 +336,10 @@ export function createOfficeArt(ctx, { round, oval, line }) {
       for (let i = 0; i < 6; i++) {
         round(x + 8 + i * 18, y - 60, 12, 49, 2, i % 2 ? '#c5beae' : '#9fabaa');
       }
+    } else if (kind === 'liftPanel') {
+      round(x, y - 45, 54, 36, 3, '#202f39');
+      fill(x + 8, y - 38, 38, 7, '#5e8594');
+      for (let button = 0; button < 3; button++) oval(x + 12 + button * 13, y - 21, 3, 3, '#ffc377');
     } else if (kind === 'printerStack') {
       round(x, y - 47, 104, 47, 5, '#879fa3');
       round(x + 13, y - 38, 78, 10, 2, '#536f77');
