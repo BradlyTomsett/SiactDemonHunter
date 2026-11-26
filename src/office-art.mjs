@@ -33,9 +33,11 @@ export function createOfficeArt(ctx, { round, oval, line }) {
   }
   function visible(item, camera, cameraY = 0, margin = 6) {
     const x = item.x;
-    const y = item.y ?? 0;
+    const baseY = item.y ?? 0;
+    const rise = item.rise ?? 0;
+    const y = baseY - Math.max(0, rise);
     const w = item.w ?? 180;
-    const h = item.h ?? 60;
+    const h = (item.h ?? 60) + Math.abs(rise);
     return x + w >= camera - margin && x <= camera + W + margin
       && y + h >= cameraY - margin && y <= cameraY + H + margin;
   }

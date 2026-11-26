@@ -159,6 +159,37 @@ test('pit markers match the actual raised floor and the scrolling corridor', () 
   }
 });
 
+test('the visible part of an uphill or downhill ramp is still drawn', () => {
+  const art = createOfficeArt({}, {});
+  const uphill = ramp.platforms.find(p => p.kind === 'slope');
+  const downhill = { ...uphill, y: uphill.y - uphill.rise, rise: -uphill.rise };
+  for (const slope of [uphill, downhill]) {
+    const cameraY = Math.min(slope.y, slope.y - slope.rise) + 20 - VIEW.height;
+    assert.ok(art.visible(slope, slope.x, cameraY));
+  }
+});
+
+test('the helper switches between ammo and medical kits based on current health', () => {
+  const first = LEVELS[0];
+  const game = restoreGame(isolated(first), {
+    checkpoint: first.checkpoints.length - 1, checkpointLayout: first.checkpointLayout,
+  });
+  Object.assign(game.player, { x: first.boss.trigger + 15, invincible: 60 });
+  const gifts = () => game.supplies.filter(supply => supply.gift);
+  for (let frame = 0; frame < 1400 && gifts().length < 1; frame++) step(game);
+  assert.equal(gifts()[0]?.type, 'ammo');
+
+  game.player.health -= 2;
+  for (let frame = 0; frame < 1040 && gifts().length < 2; frame++) step(game);
+  assert.equal(gifts().length, 2);
+  assert.equal(gifts()[1].type, undefined);
+  assert.equal(gifts()[1].amount, 1);
+
+  game.player.health = game.player.maxHealth;
+  for (let frame = 0; frame < 1040 && gifts().length < 3; frame++) step(game);
+  assert.equal(gifts()[2]?.type, 'ammo');
+});
+
 test('supplies and legacy checkpoints have support and ladders reach real floors', () => {
   for (const level of [ramp, tower, shaft]) {
     const supported = (x, y, w) => level.platforms.some(p => p.kind !== 'slope'

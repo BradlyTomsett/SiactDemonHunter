@@ -10,7 +10,7 @@ export function createGame(level, options = {}) {
     level, player: null, status: "playing", reason: "", camera: 0, elapsed: 0,
     lives: options.lives ?? PLAYER.lives, respawns: 0, respawnReason: "", checkpoint: -1,
     enemies: [], supplies: [], bullets: [], enemyShots: [], sparks: [], grenades: [], waves: [],
-    bosses: [], boss: null, clearedBosses: 0, muleReturnHealth: null, helperDrops: 0,
+    bosses: [], boss: null, clearedBosses: 0, muleReturnHealth: null, shotWeapon: null,
     clearedHordes: new Set(), hordeStarts: 0,
     score: options.score ?? 0, collectedFood: new Set(), food: [],
     characterId: CHARACTERS[options.characterId] ? options.characterId : 'minister',
@@ -489,6 +489,7 @@ function stepShots(game, fire, dt) {
       game.bullets.push({ x, y, w: size, h: size, vx, vy, kind, life: weapon.lifetime, damage: weapon.damage * (p.boost > 0 ? 1.5 : 1), pierce: weapon.pierce ?? 1, hit: [] });
     }
     p.cooldown = weapon.interval;
+    game.shotWeapon = kind;
     p.flash = 0.06;
     p.flashColor = weapon.color;
     if (p.ammo !== Infinity && --p.ammo <= 0) { p.weapon = 'basic'; p.ammo = Infinity; }
@@ -1301,8 +1302,7 @@ function updateHelper(game, dt) {
   if (helper.timer > 0) return;
   helper.timer = 4 + Math.random() * 4;
   helper.speech = 1.5;
-  game.helperDrops += 1;
-  const heal = Math.random() < 0.5 || game.player.health >= game.player.maxHealth;
+  const heal = game.player.health < game.player.maxHealth;
   game.supplies.push({
     x: clamp(helper.x - 4, boss.cfg.arenaLeft, boss.cfg.arenaRight - 22),
     y: helper.y - 20,
@@ -1340,6 +1340,7 @@ export function cableActive(elapsed) {
 }
 
 export function stepGame(game, input, dt) {
+  game.shotWeapon = null;
   if (game.status !== "playing") return;
   const p = game.player;
   game.elapsed += dt;

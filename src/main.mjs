@@ -1,4 +1,5 @@
 import { createGame, restoreGame, stepGame } from "./game.mjs";
+import { createAudio } from "./audio.mjs";
 import { createInput } from "./input.mjs";
 import { CHARACTERS, GRENADE, LEVELS, PLAYER, WEAPONS } from "./levels.mjs";
 import { createRenderer } from "./render.mjs";
@@ -6,6 +7,7 @@ import { clearSave, decodeCarry, makeSnapshot, readSave, writeSave } from "./sav
 
 const byId = id => document.getElementById(id);
 const render = createRenderer(byId("world"));
+const audio = createAudio();
 const hud = byId("hud");
 const health = byId("health");
 const lives = byId("lives");
@@ -38,13 +40,17 @@ const portraitView = window.matchMedia("(orientation: portrait)");
 
 function applyOrientation() {
   const rotated = portraitView.matches;
-  if (rotated) document.documentElement.dataset.rotated = "1";
-  else delete document.documentElement.dataset.rotated;
+  const { dataset } = document.documentElement;
+  if (rotated === (dataset.rotated === "1")) return;
+  if (rotated) dataset.rotated = "1";
+  else delete dataset.rotated;
+  input.clear();
+  if (screen === "playing" && game.player.knockback <= 0) game.player.vx = 0;
 }
 
 async function lockLandscape() {
   try {
-    await screen.orientation?.lock?.("landscape");
+    await window.screen.orientation?.lock?.("landscape");
   } catch {
     // 桌面浏览器和 iOS 不支持屏幕方向锁定，靠上面的旋转兜底。
   }
@@ -85,6 +91,7 @@ function setScreen(next) {
   input.clear();
   accumulator = 0;
   screen = next;
+  audio.setPlaying(next === "playing", levelIndex);
   syncVisibility();
 }
 
@@ -179,6 +186,7 @@ function showTitle() {
   selectedStage = 0;
   clearProgress();
   loadLevel(0, PLAYER.lives);
+  syncCharacterButtons();
   syncStageButtons();
   panel(
     "title",
@@ -202,12 +210,16 @@ characterSelect.addEventListener('click', event => {
   const characterId = button?.dataset.character;
   if (screen !== 'title' || !CHARACTERS[characterId]) return;
   selectedCharacter = characterId;
-  for (const option of characterSelect.querySelectorAll('[data-character]')) {
-    option.setAttribute('aria-pressed', String(option.dataset.character === characterId));
-  }
+  syncCharacterButtons();
   loadLevel(selectedStage, PLAYER.lives);
   byId('menu-chapter').textContent = game.level.name;
 });
+
+function syncCharacterButtons() {
+  for (const option of characterSelect.querySelectorAll('[data-character]')) {
+    option.setAttribute('aria-pressed', String(option.dataset.character === selectedCharacter));
+  }
+}
 
 function syncStageButtons() {
   for (const option of stageSelect.querySelectorAll('[data-stage]')) {
@@ -485,6 +497,8 @@ async function installGame() {
   }
 }
 install.addEventListener('click', installGame);
+document.addEventListener('pointerup', audio.unlock, { capture: true });
+document.addEventListener('keydown', audio.unlock, { capture: true });
 primary.addEventListener("click", () => primaryAction());
 home.addEventListener("click", showTitle);
 pauseButton.addEventListener("click", togglePause);
@@ -526,17 +540,17 @@ function frame(now) {
     accumulator += seconds;
     const priorDefeats = game.clearedBosses;
     const priorBoss = game.boss;
-    const priorHelperDrops = game.helperDrops;
     const priorHordes = game.hordeStarts;
     while (accumulator >= step && game.status === "playing") {
       stepGame(game, input.read(), step);
+      if (game.shotWeapon) audio.shoot(game.shotWeapon);
       accumulator -= step;
     }
     if (game.clearedBosses !== priorDefeats && priorBoss?.kind === 'dog') speakLine('骡子救我！');
     if (game.boss !== priorBoss && game.boss?.state === 'enter' && game.boss.summoned) {
       speakLine('骡子爹我来了！');
     }
-    if (game.helperDrops > priorHelperDrops) speakLine('我是好人！');
+    audio.tick();
     updateHud();
     if (game.hordeStarts > priorHordes) showNotice('小怪潮来了！');
     if (game.status !== "playing") finish();

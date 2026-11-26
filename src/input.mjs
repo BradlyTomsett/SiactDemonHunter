@@ -14,7 +14,6 @@ export function createInput(controls, onPause, canPlay) {
   let stickPointer = null;
   let stickX = 0;
   let stickY = 0;
-  let stickMove = 0;
   let originX = 0;
   let originY = 0;
 
@@ -22,15 +21,13 @@ export function createInput(controls, onPause, canPlay) {
     stickPointer = null;
     stickX = 0;
     stickY = 0;
-    stickMove = 0;
     stick.hidden = true;
     knob.style.transform = "translate(-50%, -50%)";
   }
 
   const isRotated = () => document.documentElement.dataset.rotated === "1";
 
-  // 摇杆只有 8 个方向；推过这个阈值才真正移动，推得浅就站着不动（不再有"只瞄准"模式）。
-  const MOVE_THRESHOLD = 0.35;
+  const AIM_STEP = Math.PI / 4;
 
   function moveStick(event) {
     const rect = stick.getBoundingClientRect();
@@ -43,11 +40,10 @@ export function createInput(controls, onPause, canPlay) {
     const length = Math.hypot(x, y);
     if (length > 1) { x /= length; y /= length; }
     knob.style.transform = `translate(calc(-50% + ${x * radius}px), calc(-50% + ${y * radius}px))`;
-    if (length < MOVE_THRESHOLD) { stickX = 0; stickY = 0; stickMove = 0; return; }
-    const angle = Math.round(Math.atan2(y, x) / (Math.PI / 4)) * (Math.PI / 4);
+    if (length === 0) { stickX = 0; stickY = 0; return; }
+    const angle = Math.round(Math.atan2(y, x) / AIM_STEP) * AIM_STEP;
     stickX = Math.abs(Math.cos(angle)) < 1e-6 ? 0 : Math.cos(angle);
     stickY = Math.abs(Math.sin(angle)) < 1e-6 ? 0 : Math.sin(angle);
-    stickMove = Math.sign(stickX);
   }
 
   zone.addEventListener("pointerdown", event => {
@@ -161,7 +157,7 @@ export function createInput(controls, onPause, canPlay) {
       const x = stickPointer !== null ? stickX : keyX;
       const y = stickPointer !== null ? stickY : keyY;
       const input = {
-        move: stickPointer !== null ? stickMove : keyX,
+        move: Math.sign(x),
         aimX: x,
         aimY: y,
         jump: jumpPressed,
